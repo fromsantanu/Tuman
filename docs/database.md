@@ -87,6 +87,10 @@ Unique constraints protect usernames, non-null email addresses, invoice numbers,
 
 ## Financial and history rules
 
+### Phase 11-14 additions
+
+`tmn_payments.currency_code` is copied from its invoice and valid-payment totals determine the invoice status. `tmn_teacher_payment_details` stores two optional, Teacher-owned payment instruction blocks. `tmn_email_log` is the Phase 14 outbox: `PENDING` means queued, not delivered. No email bodies, account numbers, passwords, or SMTP credentials are stored in the log.
+
 Money is `DECIMAL(12,2)` and quantities are `DECIMAL(10,2)`; calculations must round to two decimal places deterministically. An invoice stores totals and each `tmn_invoice_items` row stores its own quantity, rate, and amount snapshot. Consequently a later billing-rate row cannot change an existing invoice. Invoice generation and payment recording must use transactions in later phases.
 
 ## Installation and seed data

@@ -8,6 +8,14 @@ Added Teacher-owned payment details, currency-aware invoice PDF downloads, and p
 
 Added a Teacher-owned invoice notice and payment-reminder queue using `tmn_email_log`. SMTP delivery and receipt emails are not implemented yet.
 
+## Phase 12 - Student Portal
+
+Replaced the Student placeholder with read-only, student-scoped profile, attendance, invoice, invoice-detail, and payment-history screens.
+
+## Phase 11 - Payments
+
+Added Teacher payment recording, payment history, and voiding. Payment currency is inherited from the invoice and invoice status is recalculated transactionally.
+
 ## Phase 00 — Project specification and architecture
 
 **Date:** 2026-09-01  

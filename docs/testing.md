@@ -10,6 +10,15 @@
 
 ## Current phase
 
+## Phases 11-14 results
+
+| Test | Result | Notes |
+| --- | --- | --- |
+| Payment validation and invoice states | PASS | Decimal validation and issued/partially-paid invoice states verified. |
+| Student Portal isolation | PASS | Seeded Student retrieves only their own invoice and payment records. |
+| PDF/payment-detail setup | PASS | Payment-detail table and owned invoice export lookup verified. |
+| SMTP delivery and receipt emails | BLOCKED | Delivery configuration and receipt email work remain pending. |
+
 Phase 02 added PHP configuration and SQL source files. PHP syntax was checked successfully for the environment loader, PDO helper, and connection test. The schema contains 14 tables and the naming check confirmed they all use `tmn_`.
 
 The PDO test correctly returns a safe configuration error when `.env` is absent. On this machine, the running MySQL server rejects the default XAMPP `root`/blank-password credentials, so applying and integration-testing the SQL requires valid local MySQL credentials. No credentials were guessed or added to source control.

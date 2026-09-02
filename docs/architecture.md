@@ -123,6 +123,10 @@ Invoice items are created as immutable snapshots. Present hourly attendance crea
 
 Teachers can maintain their own Indian and international payment instructions in `tmn_teacher_payment_details`. Teacher-owned invoices can be exported as PDFs; INR selects Indian instructions and other currencies select international instructions. Phase 14 queues invoice notices and payment reminders in `tmn_email_log` with safe metadata. SMTP delivery is deliberately disabled until approved environment credentials are configured; pending queue records must not be represented as sent messages.
 
+## Payments and Student Portal (Phases 11-12)
+
+Phase 11 records and voids Teacher-owned payments inside transactions that also update the invoice payment status. A payment inherits the invoice currency and overpayments are rejected using integer minor-unit calculation. Phase 12 provides read-only Student views, with every query constrained by the authenticated `student_user_id`; Students cannot change attendance, invoices, or payments.
+
 - PDO prepared statements for all values originating outside trusted program code.
 - `password_hash()` and `password_verify()` for passwords; passwords are never stored or logged in plain text.
 - CSRF tokens on all state-changing forms.
