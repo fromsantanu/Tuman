@@ -1,0 +1,11 @@
+# TUMAN — Phase 13
+
+## Receipts and PDF Exports
+
+Implement Teacher-owned invoice PDF exports and payment receipts. Add a Teacher-only Payment Details screen with separate Indian and international instructions. Store details per Teacher; never hard-code them or log account/UPI/IBAN/SWIFT values.
+
+Use INR to select the Indian block and all other supported currencies to select the international block. PDFs must show invoice/payment snapshots, unambiguous currency codes, and the appropriate static payment instructions. Students may download only their own invoice PDFs and valid-payment receipts. Teachers may export only records attached to their own assignments.
+
+Payment-details fields: Indian account holder, bank, branch, account number, IFSC, UPI ID, PAN/GSTIN, reference note; international beneficiary, bank name/address, account/IBAN, SWIFT/BIC, intermediary details, transfer-fee note, reference note.
+
+Use PDO, prepared statements, ownership-scoped queries, CSRF for settings updates, immutable financial data, and `tmn_` table names. Do not add gateways, refunds, email, or reports. Verify PDF rendering and access controls before completion.

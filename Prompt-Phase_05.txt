@@ -1,0 +1,286 @@
+# TUMAN — Phase 05
+
+## Administrator Module
+
+Continue development of **Tuman — Tuition Management System**.
+
+Phase 04 is complete. Implement **only Phase 05 — Administrator Module**.
+
+## Inspect first
+
+Before changing anything:
+
+1. Inspect the complete repository and current implementation.
+2. Read `README.md` and all documents in `docs/`.
+3. Review:
+   - `database/schema.sql`
+   - `config/database.php`
+   - `includes/auth.php`
+   - `includes/csrf.php`
+   - `admin/index.php`
+4. Preserve the existing PDO, session, CSRF, authentication, role-guard, and `tmn_` table-prefix conventions.
+5. Do not assume live MySQL credentials are configured. Use code-level checks if database integration tests remain unavailable.
+
+## Objective
+
+Build the first real Administrator module.
+
+An authenticated `ADMIN` user must be able to:
+
+- View users
+- Create users
+- Edit permitted user information
+- Activate and deactivate users
+- Change user roles
+- Reset a user password
+- View basic user details
+
+All Administrator pages must be protected with `tuman_require_role('ADMIN')`.
+
+Do not implement Teacher, Student, attendance, billing, invoice, payment, email, or report modules.
+
+## User management rules
+
+Use only the existing `tmn_users` table for authentication accounts.
+
+Supported roles are exactly:
+
+```text
+ADMIN
+TEACHER
+STUDENT
+```
+
+Supported account states are exactly:
+
+```text
+ACTIVE
+INACTIVE
+```
+
+Follow these requirements:
+
+- Usernames must be unique.
+- Passwords must be stored only with `password_hash()`.
+- User lists must never display password hashes.
+- Deactivation must update status rather than deleting the user.
+- Do not physically delete users in this phase.
+- An inactive user cannot log in.
+- Role changes must use server-side validation.
+- All state-changing operations must use POST and CSRF protection.
+- Use PDO prepared statements for every database query.
+- Show safe, helpful validation messages without exposing database errors.
+
+## Administrator pages
+
+Create a small, consistent Administrator section as appropriate, for example:
+
+```text
+admin/
+├── index.php
+├── users.php
+├── user-create.php
+├── user-edit.php
+├── user-password.php
+└── user-status.php
+```
+
+The exact names may differ if the existing project structure suggests a clearer simple design.
+
+### Administrator landing page
+
+Replace or extend the current Phase 03 placeholder with a simple Administrator landing page.
+
+It should provide links to:
+
+- User list
+- Create user
+- Logout
+
+Do not add unrelated dashboard charts or system features.
+
+### User list
+
+Provide a paginated or simple readable user list containing:
+
+- Username
+- Email, where available
+- Role
+- Status
+- Created date
+- Last login, where available
+- Actions appropriate to the current Administrator
+
+Do not expose password hashes or internal database details.
+
+### Create user
+
+Provide a CSRF-protected form to create an Administrator, Teacher, or Student account.
+
+Validate:
+
+- Username is required and within the schema limit.
+- Password is required and meets a reasonable minimum length.
+- Role is valid.
+- Email is valid when supplied.
+- Duplicate usernames are rejected safely.
+
+Use `password_hash()` before inserting the password.
+
+Creating a profile record for a new Teacher or Student is optional in this phase. If implemented, keep it minimal and document the decision. Do not create duplicate user-management logic.
+
+### Edit user
+
+Allow an Administrator to update only appropriate account fields, such as:
+
+- Username
+- Email
+- Role
+- Status
+
+Do not expose or edit password hashes.
+
+Protect direct URL access by validating user IDs server-side. Invalid or unknown IDs must be handled safely.
+
+### Activate/deactivate
+
+Provide a CSRF-protected action to change account status.
+
+Important safeguards:
+
+- Do not allow an Administrator to deactivate their own currently authenticated account.
+- Do not allow an Administrator to remove their own administrative access through a role change.
+- Do not allow the system to become locked out by deactivating or demoting the final active Administrator account.
+
+Use an appropriate transactional or carefully validated approach for the final-active-Administrator rule.
+
+### Password reset
+
+Provide an Administrator-only password reset form.
+
+Requirements:
+
+- The administrator enters a new password twice.
+- Validate confirmation and reasonable password length.
+- Store the new password only with `password_hash()`.
+- Do not display, log, or retain the plaintext password.
+- Protect the action with CSRF.
+- Do not implement email-based password reset in this phase.
+
+## Security and authorization
+
+- Every Administrator page must enforce the Administrator role on the server.
+- A Teacher or Student entering an `/admin/` URL must receive a safe denial.
+- Never use IDs from request parameters as proof of authorization.
+- Escape all values rendered into HTML.
+- Use POST for create, edit, status change, role change, and password reset.
+- Use confirmation language for deactivate and password-reset actions.
+- Do not expose SQL errors, file paths, stack traces, credentials, or password hashes.
+
+## Activity logging
+
+The database contains `tmn_activity_log`.
+
+Add a small reusable activity-log helper if it can be done cleanly. Record meaningful Administrator actions such as:
+
+```text
+USER_CREATED
+USER_UPDATED
+USER_STATUS_CHANGED
+USER_ROLE_CHANGED
+USER_PASSWORD_RESET
+```
+
+Store only safe audit details. Never store passwords or password hashes in log details.
+
+If live database testing is unavailable, ensure the logging helper is documented and tested at code level where practical.
+
+## Documentation
+
+Update:
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/development-log.md`
+- `docs/testing.md`
+- `docs/user-manual.md`
+
+Document:
+
+- Administrator permissions
+- User-management safeguards
+- Password reset handling
+- Activity-log decisions
+- Tests performed and database-related limitations
+
+## Testing
+
+Test at minimum:
+
+```text
+Unauthenticated user → Admin page → redirected
+Teacher → Admin page → denied
+Student → Admin page → denied
+Administrator → Admin page → allowed
+```
+
+Also test:
+
+```text
+Create valid user → succeeds
+Duplicate username → rejected
+Invalid role → rejected
+Missing CSRF token → rejected
+Invalid CSRF token → rejected
+Deactivate user → status changes
+Inactive user → cannot authenticate
+Password reset → new password hash is stored
+Administrator cannot deactivate or demote self
+Final active Administrator cannot be deactivated or demoted
+```
+
+Clearly distinguish:
+
+```text
+PASS
+BLOCKED
+NOT APPLICABLE
+```
+
+Do not report live database tests as passed if valid local MySQL credentials are unavailable.
+
+## Final report format
+
+```text
+PHASE 05 — ADMINISTRATOR MODULE
+
+Status:
+- Completed / Completed with issues / Blocked
+
+Implemented:
+- ...
+
+Files created:
+- ...
+
+Files modified:
+- ...
+
+Database changes:
+- ...
+
+Tests performed:
+- PASS:
+- BLOCKED:
+
+Security decisions:
+- ...
+
+Known issues:
+- ...
+
+Next recommended phase:
+- ...
+```
+
+Do not proceed automatically to Phase 06.

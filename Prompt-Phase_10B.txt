@@ -1,0 +1,39 @@
+# TUMAN — Phase 10B
+
+## Student Country Completion
+
+Phase 10A is complete. Implement only Phase 10B — Student Country Completion.
+
+## Objective
+
+Complete the teacher-facing country workflow introduced in Phase 10A. Do not add payments, exchange rates, tax, address rules, timezone behaviour, or any Phase 11 functionality.
+
+## Required work
+
+- Review `config/currencies.php`, `services/teacher_students.php`, and the Teacher student pages before changing them.
+- On `teacher/student-edit.php`, show an optional Country selector sourced from `TUMAN_COUNTRIES`. Preserve the existing selection after validation errors.
+- On `teacher/student-view.php`, show the stored country name and ISO alpha-2 code, or an em dash when no country is stored.
+- Continue validating country values server-side through `tuman_country_code()`; do not trust browser values.
+- Keep `tuman_require_role('TEACHER')`, CSRF validation, output escaping, and ownership-scoped student lookup exactly intact.
+- Keep the existing `STUDENT_PROFILE_UPDATED` activity event and its `country_changed` metadata only. Do not log unnecessary personal data.
+- Do not create a database migration: Phase 10A already added `tmn_student_profiles.country_code`.
+
+## Documentation and testing
+
+- Update README and relevant docs to describe Phase 10B as complete and Phase 11 as next.
+- Test valid country update, blank country update, invalid country rejection, cross-teacher access rejection, invalid CSRF rejection, and PHP syntax.
+- Clearly report PASS, BLOCKED, and NOT APPLICABLE results.
+
+## Final report format
+
+    PHASE 10B — STUDENT COUNTRY COMPLETION
+
+    Status:
+    Implemented:
+    Files created:
+    Files modified:
+    Tests performed:
+    Security decisions:
+    Next recommended phase:
+
+Do not proceed automatically to Phase 11.

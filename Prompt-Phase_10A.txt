@@ -1,0 +1,209 @@
+# TUMAN — Phase 10A
+
+## International Students and Multi-Currency Support
+
+Continue development of Tuman — Tuition Management System.
+
+Phase 10 is complete. Implement only Phase 10A — International Students and Multi-Currency Support.
+
+## Inspect first
+
+Before making changes:
+
+1. Inspect the complete repository.
+2. Read README.md and every file in docs/.
+3. Review database/schema.sql, database/seed.sql, services/teacher_students.php, services/billing.php, services/invoices.php, current teacher/ pages, and Prompt-Phase_11.txt.
+4. Preserve PDO, CSRF, role guard, transaction, ownership-query, decimal-money, immutable-invoice-snapshot, activity-log, and tmn_ table-prefix conventions.
+
+Do not implement payments, gateways, exchange-rate conversion, email, PDF, reports, or Student self-service in this phase.
+
+## Objective
+
+Add safe support for international students and billing in foreign currencies.
+
+Teachers must be able to record an optional student country and choose a currency for each billing rule. Invoices must snapshot their currency. Existing data must remain valid and be treated as INR after migration. Payment schema support must be prepared for Phase 11, but do not build payment pages or payment workflows.
+
+## Database changes
+
+A database change is required. Create a clearly documented, idempotent migration in database/migrations/ and update database/schema.sql for fresh installations.
+
+Add:
+
+    tmn_student_profiles.country_code CHAR(2) NULL
+    tmn_student_billing.currency_code CHAR(3) NOT NULL DEFAULT 'INR'
+    tmn_invoices.currency_code CHAR(3) NOT NULL DEFAULT 'INR'
+    tmn_payments.currency_code CHAR(3) NOT NULL DEFAULT 'INR'
+
+Rules:
+
+- Existing records must keep their meaning: migrate existing billing, invoices, and payments to INR.
+- Do not change existing rate, amount, total, invoice-number, payment-status, or history values.
+- All new/existing table names must keep the tmn_ prefix.
+- New columns must use appropriate indexes only if a demonstrated query needs one; do not add speculative tables or indexes.
+- Record exact migration instructions in docs/database.md.
+
+## Country and currency rules
+
+Add a small central configuration, for example config/currencies.php, containing a documented supported ISO 4217 currency-code map. Include at least:
+
+    INR, USD, EUR, GBP, AUD, CAD, AED, SGD, NZD, ZAR,
+    JPY, CNY, HKD, CHF, SEK, NOK, DKK, BDT, LKR, NPR
+
+The configuration may be extended later without a schema change. Validate currency codes against this central map on the server. Do not accept arbitrary client-provided codes.
+
+Country:
+
+- country_code is optional.
+- When supplied, it must be an uppercase ISO 3166-1 alpha-2 code from a central, documented supported list/map.
+- Add it to Teacher student enrolment, permitted student-profile editing, and student detail display.
+- Do not add country-specific tax, address, legal, identity, or timezone behaviour in this phase.
+
+Currency:
+
+- A billing rule requires one supported currency_code. New rules default to INR but the Teacher may choose another supported currency.
+- Rate validation remains decimal-safe with no more than two fraction digits. Currency conversion is never performed.
+- Existing billing rules created before this phase are INR.
+- An invoice inherits a single currency_code from its generated billable items and snapshots it in tmn_invoices.
+- All generated invoice items inherit their invoice currency; do not add a separate item currency column.
+- An invoice must never combine billable items in different currencies. If the selected month has hourly/fixed rules in more than one currency, reject generation with a friendly message asking the Teacher to use consistent billing currencies.
+- Existing invoices are INR. Do not reinterpret or convert historical invoice totals.
+- Update invoice and billing display helpers to show an unambiguous currency code with the amount, for example USD 300.00 or INR 2,000.00. Do not rely only on currency symbols.
+- Prepare tmn_payments.currency_code for Phase 11. Existing payments are INR. Phase 10A must not add payment forms or permit manually changing payment currency.
+
+## Ownership and data integrity
+
+Every new or changed Teacher page must preserve:
+
+    tuman_require_role('TEACHER')
+
+All student, billing, and invoice reads/writes must continue proving ownership through tmn_teacher_students.teacher_user_id. Do not trust country codes, currency codes, assignment IDs, billing IDs, invoice IDs, hidden fields, or URL parameters as authorization proof.
+
+Maintain invoice snapshot integrity:
+
+- Changing a billing rule currency or rate after an invoice exists must not alter that invoice or its items.
+- A historical inactive billing rule remains eligible for invoice generation when its effective dates cover the billed work, using its stored currency.
+- Do not convert or recalculate existing invoice totals.
+
+## Required application changes
+
+### Student details
+
+Update the existing Teacher student enrolment, edit, and detail pages:
+
+- Add an optional Country field using supported country codes/names.
+- Validate and store country_code server-side.
+- Keep all existing ownership and CSRF rules.
+
+### Billing Rules
+
+Update existing Billing Rules pages and service:
+
+- Show a currency selector and store currency_code on create/edit.
+- Show the currency code with the rate in lists and confirmations.
+- Preserve effective-date overlap protection; currency does not bypass the no-overlap rule for the same assignment and billing mode.
+- Do not change unrelated billing history.
+
+### Invoices
+
+Update the existing Invoices service and views:
+
+- Determine the currency from generated billing items.
+- Reject mixed-currency source items for one invoice.
+- Store currency_code with the invoice in the same transaction as header/items/sequence/audit creation.
+- Display invoice currency code consistently in list, detail, issue, and cancel views.
+- Preserve all prior draft/issue/cancel, numbering, ownership, duplicate-month, and immutable-snapshot rules.
+
+## Service design
+
+Create or update focused reusable helpers rather than duplicating country/currency validation:
+
+- Central supported currency and country maps.
+- Server-side country/currency validation.
+- Currency-aware rate and amount display helpers.
+- Currency consistency validation during invoice generation.
+- Safe migration-aware defaults for existing data.
+
+Use PDO prepared statements and transactions wherever existing workflows already require them. Do not add a framework or ORM.
+
+## Activity log
+
+Use existing activity-log conventions. Log safe metadata only, for example:
+
+    STUDENT_PROFILE_UPDATED with country_changed true
+    BILLING_RULE_CREATED or BILLING_RULE_UPDATED with currency_code
+    INVOICE_CREATED with currency_code
+
+Do not log full addresses, payment remarks, passwords, hashes, database credentials, or unnecessary personal data.
+
+## Documentation
+
+Update:
+
+    README.md
+    docs/architecture.md
+    docs/database.md
+    docs/development-log.md
+    docs/testing.md
+    docs/user-manual.md
+    Prompt-Phase_11.txt
+
+Document the migration, supported currencies/countries, default INR treatment of historical data, no-conversion policy, billing/invoice currency snapshots, mixed-currency rejection, and tests performed.
+
+## Testing
+
+Test at minimum:
+
+    Existing database migration -> succeeds without losing existing data
+    Existing billing rules/invoices/payments -> currency_code INR
+    New student with valid country -> stored
+    Invalid country code -> rejected
+    New billing rule in USD/EUR -> stored and displayed with code
+    Invalid/arbitrary currency code -> rejected
+    Existing billing rule without explicit code after migration -> INR
+    Invoice from same-currency hourly/fixed rules -> created with that currency
+    Invoice from mixed-currency source rules -> rejected
+    Existing INR invoice remains INR and unchanged after billing-currency update
+    Teacher A cannot view/edit Teacher B country/billing/invoice record
+    Unauthenticated user -> changed protected route -> redirected
+    Administrator/Student -> changed Teacher route -> denied
+    Missing/invalid CSRF -> rejected on every changed state form
+    PHP syntax checks -> pass
+
+Clearly distinguish PASS, BLOCKED, and NOT APPLICABLE.
+
+## Final report format
+
+    PHASE 10A — INTERNATIONAL STUDENTS AND MULTI-CURRENCY
+
+    Status:
+    - Completed / Completed with issues / Blocked
+
+    Implemented:
+    - ...
+
+    Files created:
+    - ...
+
+    Files modified:
+    - ...
+
+    Database changes:
+    - ...
+
+    Migration instructions:
+    - ...
+
+    Tests performed:
+    - PASS:
+    - BLOCKED:
+
+    Security decisions:
+    - ...
+
+    Known issues:
+    - ...
+
+    Next recommended phase:
+    - ...
+
+Do not proceed automatically to Phase 11.

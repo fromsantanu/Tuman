@@ -1,0 +1,297 @@
+# TUMAN — Phase 11
+
+## Payments Module
+
+Continue development of Tuman — Tuition Management System.
+
+Phase 10A is complete. Implement only Phase 11 — Payments.
+
+## Inspect first
+
+Before making changes:
+
+1. Inspect the complete repository.
+2. Read README.md and every file in docs/.
+3. Review database/schema.sql, database/seed.sql, the Phase 10A migration, config/currencies.php, services/invoices.php, services/billing.php, services/activity_log.php, includes/auth.php, includes/csrf.php, and current teacher/ pages.
+4. Preserve the PDO, CSRF, role guard, transaction, ownership-query, activity-log, decimal-money, currency-snapshot, invoice-snapshot, and tmn_ table-prefix conventions.
+
+Do not rewrite working Administrator, authentication, public-site, Teacher student-management, Responsibilities, Attendance, Billing Rules, or Invoices functionality unnecessarily.
+
+## Objective
+
+Build the Teacher Payments module.
+
+A Teacher must be able to record valid payments against only their own issued or partially-paid invoices, review payment history, and void an incorrect payment without deleting it. Payment writes and the resulting invoice balance/status must be one transaction.
+
+Do not implement payment gateways, online checkout, receipts, email delivery, PDF generation, refunds, credits, overpayments, reports, Student self-service, or any Phase 12-or-later functionality.
+
+## Existing database design
+
+Use the existing tables:
+
+    tmn_payments
+    tmn_invoices
+    tmn_teacher_students
+
+Relevant payment fields:
+
+    id
+    invoice_id
+    payment_date
+    amount
+    payment_method
+    reference_number
+    remarks
+    status
+    voided_at
+    created_at
+    updated_at
+    currency_code
+
+Payment methods:
+
+    CASH
+    UPI
+    BANK_TRANSFER
+    CARD
+    OTHER
+
+Payment statuses:
+
+    VALID
+    VOIDED
+
+Relevant invoice statuses:
+
+    ISSUED
+    PARTIALLY_PAID
+    PAID
+    CANCELLED
+    DRAFT
+
+Invoices and payments have a currency_code after Phase 10A. Existing records use INR. There is no exchange-rate conversion in Tuman.
+
+All current and future table names must use the tmn_ prefix. Do not create a new table unless a genuine schema limitation is found. If needed, add a clearly documented migration/schema update that preserves existing data.
+
+## Payment and balance rules
+
+Use these rules consistently in the service and user interface:
+
+- A payment may be recorded only against a Teacher-owned invoice whose status is ISSUED or PARTIALLY_PAID.
+- Never record a payment for DRAFT, CANCELLED, or PAID invoices.
+- Payment date is required and must be a valid date.
+- Amount is required, strictly greater than zero, has no more than two decimal places, and fits DECIMAL(12,2).
+- Payment method must exactly match a supported method.
+- Reference number is optional and limited to 100 characters.
+- Remarks are optional and limited to 500 characters.
+- New payments always begin as VALID. Do not accept payment status or voided_at from the browser.
+- A new payment currency_code must be copied server-side from the owned invoice currency_code. Do not show a currency selector or accept a browser-provided payment currency.
+- Payment amount, valid-payment sum, outstanding balance, and invoice total always use the same invoice currency. Reject any inconsistent stored payment currency safely; never convert currencies.
+- The sum of VALID payments must never exceed the invoice total. Overpayments are not supported.
+- Use integer minor units or validated decimal strings for all amount and balance calculations. Do not use PHP floats.
+- A valid payment changes invoice status to PARTIALLY_PAID when the valid total is greater than zero but below the invoice total, or PAID when it equals the invoice total.
+- If a valid payment is voided, set payment status to VOIDED and voided_at to UTC_TIMESTAMP(). Recalculate the invoice from remaining VALID payments: ISSUED when their total is zero, PARTIALLY_PAID when below invoice total, or PAID when equal.
+- Never delete payments. A voided payment remains visible as history.
+- Do not change invoice header totals or invoice-item snapshots in this phase.
+- Display money with an unambiguous currency code, for example USD 300.00 or INR 2,000.00.
+
+For every payment creation and void:
+
+- Begin one transaction.
+- Lock the owned invoice row using SELECT ... FOR UPDATE.
+- Calculate the valid-payment total inside that transaction.
+- Reject overpayment before inserting a payment.
+- Insert/update the payment, update the invoice status, and write the audit entry in the same transaction.
+- Roll back all writes if any validation, update, or activity-log step fails.
+
+## Ownership and access rules
+
+Every Teacher Payment page must enforce:
+
+    tuman_require_role('TEACHER')
+
+Every invoice/payment read or write must prove ownership through the linked assignment, conceptually:
+
+    WHERE payment.id = :payment_id
+      AND teacher_students.teacher_user_id = :current_teacher_id
+
+and:
+
+    WHERE invoice.id = :invoice_id
+      AND teacher_students.teacher_user_id = :current_teacher_id
+
+Do not trust invoice IDs, payment IDs, hidden fields, or URL parameters as authorization proof. A request for another Teacher’s invoice/payment must receive the same safe result as an invalid or missing record.
+
+## Required Teacher functionality
+
+Create a simple payments area, for example:
+
+    teacher/payments.php
+    teacher/payment-create.php
+    teacher/payment-void.php
+
+The invoice detail page may show its payments and link to these pages if that remains ownership-scoped.
+
+### Payments list
+
+Provide a page that lets the logged-in Teacher:
+
+- Select one of their own invoices, with an option to see all their invoices/payments.
+- See invoice number, student, payment date, amount, method, reference where available, payment status, voided date where applicable, and actions.
+- Clearly distinguish VALID from VOIDED history.
+- Record a payment for an eligible invoice.
+- Void a valid payment.
+
+Do not expose another Teacher’s invoices or payments.
+
+### Record payment
+
+Create a CSRF-protected POST form.
+
+Required inputs:
+
+    Invoice
+    Payment date
+    Amount
+    Payment method
+
+Optional inputs:
+
+    Reference number
+    Remarks
+
+The invoice selector must include only Teacher-owned ISSUED/PARTIALLY_PAID invoices. Still recheck ownership, invoice state, currency, and balance server-side. Clearly show the invoice currency, total, amount paid, and outstanding balance before submission where practical, but never trust browser-calculated values.
+
+### Void payment
+
+Provide a CSRF-protected confirmation POST form.
+
+Rules:
+
+- Only the owning Teacher can void one of their VALID payments.
+- Set status to VOIDED and voided_at in the service; do not delete the row.
+- Recalculate and update the associated invoice status inside the same transaction.
+- Clearly explain that the voided payment remains in history.
+- A voided payment cannot be voided again.
+
+Do not add payment editing. A correction is made by voiding the incorrect payment and recording a new one.
+
+## Service design
+
+Create a focused reusable service, for example:
+
+    services/payments.php
+
+It should centralize:
+
+- Teacher-owned invoice and payment lookup.
+- Payment/invoice listing and payment-history queries.
+- Decimal-money validation, currency-aware display, and integer-safe amount conversion.
+- Outstanding-balance and valid-payment-total calculation.
+- Transactional payment creation, overpayment prevention, invoice-status updates, and activity logging.
+- Transactional voiding and invoice-status recalculation.
+- Ownership enforcement.
+
+Reuse existing invoice money-display helpers only if they satisfy the no-float rules. Do not duplicate security-critical balance logic across pages. Use PDO prepared statements for all user-controlled values.
+
+## Activity log
+
+Use safe events:
+
+    PAYMENT_RECORDED
+    PAYMENT_VOIDED
+    INVOICE_PAYMENT_STATUS_CHANGED
+
+Log only minimal metadata, such as payment method, amount, currency_code, invoice number, and resulting invoice status. Do not log payment remarks, passwords, hashes, database credentials, or unnecessary personal information.
+
+## Security and quality
+
+- Every state-changing form uses POST and CSRF validation.
+- Escape rendered values with htmlspecialchars().
+- Use prepared statements and transactions.
+- Never expose SQL errors, paths, credentials, or stack traces.
+- Validate all identifiers, dates, payment state, and values server-side.
+- Lock invoices before checking balances and writing payment changes.
+- Retain all financial history; never delete a payment or mutate invoice snapshots.
+- Do not add a framework or ORM.
+- Do not implement Phase 12 or later functionality.
+
+## Documentation
+
+Update README.md, docs/architecture.md, docs/database.md only if schema changes, docs/development-log.md, docs/testing.md, and docs/user-manual.md.
+
+Document payment methods, currency inheritance/no-conversion policy, payment validation, overpayment prevention, invoice-status rules, voided-history behavior, transaction boundaries, ownership enforcement, activity events, and tests.
+
+## Testing
+
+Test at minimum:
+
+    Unauthenticated user -> Payments page -> redirected
+    Administrator -> Payments page -> denied
+    Student -> Payments page -> denied
+    Teacher -> Payments page -> allowed
+
+Ownership:
+
+    Teacher A -> own invoice/payment -> allowed
+    Teacher A -> Teacher B invoice/payment -> denied
+    Teacher A -> void Teacher B payment -> denied
+
+Payment integrity:
+
+    Valid payment below outstanding balance -> created, invoice becomes PARTIALLY_PAID
+    Valid payment exactly matching outstanding balance -> created, invoice becomes PAID
+    Payment exceeding outstanding balance -> rejected
+    Payment on DRAFT/CANCELLED/PAID invoice -> rejected
+    Invalid/zero/negative/over-precision amount -> rejected
+    Invalid payment method/date/reference/remarks -> rejected
+    Multiple valid payments -> accurate outstanding balance and status
+    Valid payment is visible in payment history
+    Payment currency_code is copied from the invoice and shown with the amount
+    Payment against a USD/EUR invoice does not alter or convert its invoice currency
+    Missing/invalid CSRF token -> rejected
+
+Void and transaction history:
+
+    Void a valid payment -> payment becomes VOIDED, voided_at is set
+    Void partial payment -> invoice becomes ISSUED when no valid payments remain
+    Void one of multiple payments -> invoice becomes PARTIALLY_PAID or PAID as appropriate
+    Voided payment remains available in history
+    Void already-voided payment -> rejected
+    Failure rolls back payment/void, invoice status, and audit records together
+
+Clearly distinguish PASS, BLOCKED, and NOT APPLICABLE.
+
+## Final report format
+
+    PHASE 11 — PAYMENTS
+
+    Status:
+    - Completed / Completed with issues / Blocked
+
+    Implemented:
+    - ...
+
+    Files created:
+    - ...
+
+    Files modified:
+    - ...
+
+    Database changes:
+    - ...
+
+    Tests performed:
+    - PASS:
+    - BLOCKED:
+
+    Security decisions:
+    - ...
+
+    Known issues:
+    - ...
+
+    Next recommended phase:
+    - ...
+
+Do not proceed automatically to Phase 12.

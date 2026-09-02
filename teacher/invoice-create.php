@@ -1,0 +1,15 @@
+<?php
+declare(strict_types=1);
+
+require_once dirname(__DIR__) . '/includes/auth.php';
+require_once dirname(__DIR__) . '/includes/csrf.php';
+require_once __DIR__ . '/layout.php';
+require_once dirname(__DIR__) . '/services/invoices.php';
+
+$current = tuman_require_role('TEACHER'); $error = null; $students = [];
+try { $students = array_filter(tuman_teacher_students(tuman_database(), $current['id']), static fn(array $student): bool => $student['assignment_status'] === 'ACTIVE'); } catch (Throwable $exception) { error_log('Tuman invoice student selection failed: ' . $exception->getMessage()); $error = 'Students cannot be loaded right now.'; }
+$values = ['assignment_id' => '', 'billing_month' => gmdate('Y-m'), 'invoice_date' => gmdate('Y-m-d'), 'due_date' => ''];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') { foreach ($values as $key => $value) { $values[$key] = trim((string) ($_POST[$key] ?? '')); } if (!tuman_csrf_is_valid($_POST['csrf_token'] ?? null)) { $error = 'Your request could not be verified. Please try again.'; } else { try { tuman_create_invoice(tuman_database(), $current['id'], tuman_teacher_assignment_id($values['assignment_id']), $values); header('Location: /Tuman/teacher/invoices.php?created=1'); exit; } catch (InvalidArgumentException $exception) { $error = $exception->getMessage(); } catch (Throwable $exception) { error_log('Tuman invoice creation failed: ' . $exception->getMessage()); $error = 'Unable to generate the invoice right now.'; } } }
+tuman_teacher_page_start('Generate draft invoice');
+?>
+<h1>Generate draft invoice</h1><p>The invoice covers one complete calendar month. Amounts and items are generated from billing and attendance history.</p><?php if ($error): ?><p role="alert"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?><?php if ($students === []): ?><p>You need an active student before generating an invoice.</p><?php else: ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tuman_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><p><label>Student <select name="assignment_id" required><option value="">Choose student</option><?php foreach ($students as $student): ?><option value="<?= (int) $student['assignment_id'] ?>"<?= (string) $student['assignment_id'] === $values['assignment_id'] ? ' selected' : '' ?>><?= htmlspecialchars(trim($student['first_name'] . ' ' . ($student['last_name'] ?? '')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></label></p><p><label>Billing month <input type="month" name="billing_month" required value="<?= htmlspecialchars($values['billing_month'], ENT_QUOTES, 'UTF-8') ?>"></label></p><p><label>Invoice date <input type="date" name="invoice_date" required value="<?= htmlspecialchars($values['invoice_date'], ENT_QUOTES, 'UTF-8') ?>"></label></p><p><label>Due date <input type="date" name="due_date" value="<?= htmlspecialchars($values['due_date'], ENT_QUOTES, 'UTF-8') ?>"></label></p><p><button type="submit">Generate draft</button> <a href="/Tuman/teacher/invoices.php">Cancel</a></p></form><?php endif; tuman_teacher_page_end(); ?>

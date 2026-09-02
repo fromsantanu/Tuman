@@ -1,0 +1,32 @@
+# TUMAN — Phase 12
+
+## Student Portal
+
+Phase 11 is complete. Implement only Phase 12 — Student Portal.
+
+## Objective
+
+Replace the Student placeholder with a secure, read-only portal. A Student may view only their own profile, attendance, invoices, and payment history. Do not implement profile editing, payment recording, invoices edits, downloads, email, reports, refunds, gateways, or any Teacher/Administrator actions.
+
+## Required screens
+
+- Student dashboard with concise links and outstanding balance summary.
+- Profile page showing permitted profile and country information.
+- Attendance page showing only the authenticated student’s attendance records.
+- Invoices page and invoice-detail page showing only the authenticated student’s invoice headers/items, including currency snapshots.
+- Payments page showing only the authenticated student’s payment history, including VOIDED history.
+
+## Security and integrity
+
+- Every route calls `tuman_require_role('STUDENT')`.
+- Every query restricts data through `tmn_teacher_students.student_user_id = :student_id`; never trust URL or hidden identifiers.
+- Student financial and attendance views are read-only. Escape all output.
+- Show currency codes with amounts and never convert currencies.
+- Preserve all `tmn_`, PDO prepared-query, decimal-money, snapshot, and historical-record conventions.
+
+## Documentation and testing
+
+- Update README and the user manual, architecture, development log, and testing documentation.
+- Verify PHP syntax, direct access controls, student cross-record isolation, currency display, and existing voided-payment visibility.
+
+Do not proceed automatically beyond Phase 12.

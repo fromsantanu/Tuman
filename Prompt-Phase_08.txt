@@ -1,0 +1,325 @@
+# TUMAN — Phase 08
+
+## Attendance Module
+
+Continue development of **Tuman — Tuition Management System**.
+
+Phase 07 is complete. Implement **only Phase 08 — Attendance**.
+
+## Inspect first
+
+Before making changes:
+
+1. Inspect the complete repository.
+2. Read `README.md` and all files in `docs/`.
+3. Review:
+   - `database/schema.sql`
+   - `database/seed.sql`
+   - `services/teacher_students.php`
+   - `services/responsibilities.php`
+   - `services/activity_log.php`
+   - `includes/auth.php`
+   - `includes/csrf.php`
+   - Current `teacher/` pages
+4. Preserve the existing PDO, CSRF, role guard, ownership-query, activity-log, and `tmn_` table-prefix conventions.
+
+Do not rewrite working Administrator, authentication, public-site, Teacher student-management, or Responsibilities functionality unnecessarily.
+
+## Objective
+
+Build the Teacher Attendance module.
+
+A Teacher must be able to record and manage attendance sessions for only their own active Teacher-student relationships. The module must support more than one session for the same student on the same date when the sessions have different start times.
+
+Do not implement billing, invoices, payments, email, reports, Student self-service, or any Phase 09-or-later functionality.
+
+## Existing database design
+
+Use the existing table:
+
+```text
+tmn_attendance
+```
+
+Relevant fields:
+
+```text
+id
+teacher_student_id
+session_date
+start_time
+end_time
+duration_minutes
+status
+remarks
+created_at
+updated_at
+```
+
+Supported status values:
+
+```text
+PRESENT
+ABSENT
+LEAVE
+CANCELLED
+HOLIDAY
+```
+
+The existing unique key is:
+
+```text
+(teacher_student_id, session_date, start_time)
+```
+
+All current and future table names must use the `tmn_` prefix. Do not create a new table unless a genuine schema limitation is found. If a database change is necessary, add a clearly documented migration or schema update that preserves existing data.
+
+## Attendance rules
+
+Use these rules consistently in the service and user interface:
+
+- New attendance records may be created only for an active Teacher-student assignment owned by the logged-in Teacher.
+- `session_date` is required and must be a valid date.
+- `status` must exactly match one of the five supported values.
+- For `PRESENT`, start time and end time are required. End time must be later than start time.
+- For `PRESENT`, calculate `duration_minutes` server-side from start and end time. Never trust a duration value supplied by the browser.
+- For `ABSENT`, `LEAVE`, `CANCELLED`, and `HOLIDAY`, start time, end time, and duration must be stored as `NULL` (or an equally consistent zero-duration rule only if the existing data requires it). Do not accept session times from the browser for these statuses.
+- `remarks` are optional and must have a sensible maximum length compatible with the existing column.
+- A session must not be recorded before the Teacher-student assignment start date or after its end date, when one exists.
+- Duplicate records with the same assignment, session date, and start time must be rejected with a friendly message. The database unique key remains the final integrity safeguard.
+- Do not physically delete attendance rows. Use `CANCELLED` to preserve history when a recorded session must be cancelled.
+
+## Ownership and access rules
+
+Every Teacher Attendance page must enforce:
+
+```php
+tuman_require_role('TEACHER')
+```
+
+Every attendance read or write must confirm ownership through its linked assignment, conceptually:
+
+```sql
+WHERE attendance.id = :attendance_id
+  AND teacher_students.teacher_user_id = :current_teacher_id
+```
+
+Do not trust attendance IDs, assignment IDs, hidden fields, or URL parameters as authorization proof. A request for another Teacher's record must receive the same safe result as an invalid or missing record.
+
+## Required Teacher functionality
+
+Create a simple attendance area within `teacher/`, for example:
+
+```text
+teacher/
+├── attendance.php
+├── attendance-create.php
+├── attendance-edit.php
+└── attendance-cancel.php
+```
+
+The names may differ if the existing structure supports a clearer design.
+
+### Attendance list
+
+Provide a page that lets the logged-in Teacher:
+
+- Select one of their own students, with an option to view all of their own students.
+- Optionally filter by a sensible date range or month, using server-side validation.
+- See student name, session date, start/end time where applicable, calculated duration, status, remarks where available, and actions.
+- Add a new attendance record.
+- Edit or cancel an existing record.
+
+Do not expose another Teacher's students or attendance records.
+
+### Record attendance
+
+Create a CSRF-protected POST form.
+
+Required inputs:
+
+```text
+Student
+Session date
+Status
+```
+
+For `PRESENT`, require:
+
+```text
+Start time
+End time
+```
+
+Optional input:
+
+```text
+Remarks
+```
+
+The page may use modest JavaScript to improve the form experience, but PHP server-side validation must be complete and authoritative.
+
+### Edit attendance
+
+Allow a Teacher to edit one of their own attendance records using POST and CSRF protection. Permitted fields are:
+
+- Session date
+- Status
+- Start time/end time when status is `PRESENT`
+- Remarks
+
+Recalculate duration server-side on every update. Revalidate the assignment's ownership and date bounds. Do not allow editing another Teacher's record.
+
+### Cancel attendance
+
+Provide a confirmation page/form for a Teacher to cancel one of their own records.
+
+Rules:
+
+- Set status to `CANCELLED`; do not delete the row.
+- Clear start time, end time, and duration consistently with the attendance rules.
+- Preserve the history and explain this clearly in the confirmation screen.
+- Do not allow a Teacher to cancel another Teacher's record.
+
+Creating a new `PRESENT` record should be allowed where the unique session rule permits it, even if another historical record for the date is cancelled.
+
+## Service design
+
+Create a focused reusable service, for example:
+
+```text
+services/attendance.php
+```
+
+It should centralize:
+
+- Teacher-owned attendance and assignment lookup
+- Attendance list/query logic and safe filtering
+- Date, time, status, duplicate, and assignment-date validation
+- Server-side duration calculation
+- Create, edit, and cancel operations
+- Ownership enforcement
+
+Do not duplicate attendance queries, duration calculation, or validation across pages. Use PDO prepared statements for all user-controlled values. Use transactions where an operation requires multiple related writes.
+
+## Activity log
+
+Use the existing activity-log helper for safe events such as:
+
+```text
+ATTENDANCE_CREATED
+ATTENDANCE_UPDATED
+ATTENDANCE_STATUS_CHANGED
+```
+
+Log only minimal useful metadata, such as attendance status and assignment ID. Do not log long remarks, passwords, hashes, or unnecessary personal information.
+
+## Security and quality
+
+- Every state-changing form uses POST and CSRF validation.
+- Escape all rendered values with `htmlspecialchars()`.
+- Use prepared statements for all dynamic values.
+- Display safe validation and not-found messages; technical details belong only in server logs.
+- Ensure IDs and dates are validated server-side.
+- Keep the module understandable and simple; do not add a framework or ORM.
+- Do not implement functionality belonging to Phase 09 or later.
+
+## Documentation
+
+Update:
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/database.md` only if schema changes occur
+- `docs/development-log.md`
+- `docs/testing.md`
+- `docs/user-manual.md`
+
+Document attendance statuses, server-side duration calculation, multiple-session handling, Teacher ownership enforcement, cancelled-history behaviour, activity-log events, and tests performed.
+
+## Testing
+
+Test at minimum:
+
+```text
+Unauthenticated user -> Attendance page -> redirected
+Administrator -> Attendance page -> denied
+Student -> Attendance page -> denied
+Teacher -> Attendance page -> allowed
+```
+
+Ownership tests:
+
+```text
+Teacher A -> own student attendance -> allowed
+Teacher A -> Teacher B assignment/attendance -> denied
+Teacher A -> edit or cancel Teacher B attendance -> denied
+```
+
+Validation and calculation tests:
+
+```text
+Valid PRESENT session -> created with correct duration_minutes
+Valid ABSENT/LEAVE/HOLIDAY -> created with null time and duration values
+Missing session date -> rejected
+Invalid attendance status -> rejected
+PRESENT without times -> rejected
+End time not after start time -> rejected
+Session outside assignment dates -> rejected
+Duplicate assignment/date/start-time session -> rejected
+Missing CSRF token -> rejected
+Invalid CSRF token -> rejected
+```
+
+History tests:
+
+```text
+Cancel attendance -> status becomes CANCELLED
+Cancelled record remains available in history
+Times and duration are cleared on cancellation
+Teacher cannot cancel another Teacher's attendance
+```
+
+Clearly distinguish:
+
+```text
+PASS
+BLOCKED
+NOT APPLICABLE
+```
+
+## Final report format
+
+```text
+PHASE 08 — ATTENDANCE
+
+Status:
+- Completed / Completed with issues / Blocked
+
+Implemented:
+- ...
+
+Files created:
+- ...
+
+Files modified:
+- ...
+
+Database changes:
+- ...
+
+Tests performed:
+- PASS:
+- BLOCKED:
+
+Security decisions:
+- ...
+
+Known issues:
+- ...
+
+Next recommended phase:
+- ...
+```
+
+Do not proceed automatically to Phase 09.

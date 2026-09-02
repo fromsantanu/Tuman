@@ -1,0 +1,256 @@
+# TUMAN — Phase 10
+
+## Invoices Module
+
+Continue development of Tuman — Tuition Management System.
+
+Phase 09 is complete. Implement only Phase 10 — Invoices.
+
+## Inspect first
+
+Before making changes:
+
+1. Inspect the complete repository.
+2. Read README.md and every file in docs/.
+3. Review database/schema.sql, database/seed.sql, services/teacher_students.php, services/attendance.php, services/billing.php, services/activity_log.php, includes/auth.php, includes/csrf.php, and current teacher/ pages.
+4. Preserve the PDO, CSRF, role guard, transaction, ownership-query, activity-log, decimal-money, and tmn_ table-prefix conventions.
+
+Do not rewrite working Administrator, authentication, public-site, Teacher student-management, Responsibilities, Attendance, or Billing Rules functionality unnecessarily.
+
+## Objective
+
+Build the Teacher Invoices module.
+
+A Teacher must be able to generate a draft invoice for one of their own students from the attendance and effective-dated billing records, review its immutable item snapshot, issue it, or cancel a draft. Invoice generation must be financially deterministic and transactional.
+
+Do not implement payments, payment status updates, email delivery, PDF generation, reports, Student self-service, discounts, taxes, credits, refunds, or any Phase 11-or-later functionality.
+
+## Existing database design
+
+Use the existing tables:
+
+    tmn_invoice_sequences
+    tmn_invoices
+    tmn_invoice_items
+    tmn_attendance
+    tmn_student_billing
+    tmn_teacher_students
+
+Relevant fields:
+
+    tmn_invoice_sequences: sequence_scope, current_value
+    tmn_invoices: id, invoice_number, teacher_student_id, billing_period_from,
+    billing_period_to, invoice_date, due_date, subtotal, discount_amount,
+    total_amount, status
+    tmn_invoice_items: invoice_id, description, quantity, unit_rate, amount,
+    sort_order
+
+Invoice statuses are DRAFT, ISSUED, PARTIALLY_PAID, PAID, and CANCELLED.
+
+All current and future table names must use the tmn_ prefix. Do not create a new table unless a genuine schema limitation is found. If needed, add a documented migration/schema update that preserves existing data.
+
+## Invoice policy for this phase
+
+Apply these rules consistently:
+
+- An invoice covers exactly one full calendar month. The Teacher selects a billing month; store its first and last days in billing_period_from and billing_period_to.
+- Create a DRAFT first. It can then become ISSUED. Payment handling does not belong to this phase.
+- Store discount_amount as 0.00. Do not add a discount input or calculation.
+- A DRAFT may be CANCELLED, retaining its header and items as history. Never delete invoices or invoice items.
+- An ISSUED invoice is immutable in this phase. Do not add invoice/item editing.
+- A CANCELLED invoice cannot be issued. Do not implement payment-related status transitions.
+- A Teacher may create invoices only for an active assignment they own. Historical invoices remain visible if the assignment later becomes inactive.
+- Do not allow two non-cancelled invoices for the same assignment and billing month. Check this inside the creation transaction.
+
+### Rate and attendance selection
+
+Build items from billing rules effective on the relevant date. Use a rule effective_from/effective_to date range even if that rule is now INACTIVE: historical billing rows must price past work. If more than one applicable rule exists for the same assignment, mode, and date, reject generation as an inconsistent configuration.
+
+- HOURLY: include only PRESENT attendance in the invoice month with positive duration_minutes. Each session becomes an item using the hourly rule effective on that session date.
+- Calculate hourly quantity with integer arithmetic and half-up rounding: quantity_hundredths = round_half_up(duration_minutes * 100 / 60). Store it as a two-decimal quantity.
+- Calculate each amount in minor units with integer arithmetic and half-up rounding: amount_minor = round_half_up(rate_minor * quantity_hundredths / 100). Store its two-decimal value.
+- FIXED_MONTHLY: include one item for every fixed-monthly rule effective on the first day of the invoice month. Use quantity 1.00 and that rule’s rate snapshot. There is no pro-rating in this phase.
+- Descriptions must be clear but concise, for example Hourly tuition — 2026-08-05, 16:00–17:30 or Monthly tuition — August 2026.
+- Do not use PHP floats for quantities, rate calculations, subtotals, or totals.
+- Reject generation when it produces no billable items. Do not create a zero-value invoice.
+
+### Totals and snapshots
+
+- Invoice-item description, quantity, unit_rate, and amount are immutable snapshots. Later attendance/billing edits must not rewrite them.
+- Calculate subtotal as the minor-unit sum of item amounts.
+- Set discount_amount to 0.00 and total_amount equal to subtotal.
+- The service calculates all values. Never trust totals, quantities, amounts, numbers, status, or item data from the browser.
+
+### Invoice numbering
+
+Reserve a number inside the same transaction that inserts the invoice header, items, and activity log.
+
+- Use tmn_invoice_sequences with the existing GLOBAL scope.
+- Lock the GLOBAL row using SELECT ... FOR UPDATE, increment current_value, then write it back.
+- Use TMN-YYYY-000001: YYYY comes from invoice_date and the numeric part is the zero-padded globally reserved value.
+- Never generate invoice numbers by counting rows, using time, or random values.
+- On any failure, roll back the sequence increment, header, items, and audit entry together.
+
+## Ownership and access rules
+
+Every Teacher Invoice page must enforce:
+
+    tuman_require_role('TEACHER')
+
+Every invoice header/item read, write, issue, or cancellation must prove ownership through its assignment, conceptually:
+
+    WHERE invoice.id = :invoice_id
+      AND teacher_students.teacher_user_id = :current_teacher_id
+
+Do not trust invoice IDs, assignment IDs, billing months, hidden fields, or URL parameters as authorization proof. Requests for another Teacher’s invoice must receive the same safe result as an invalid or missing record.
+
+## Required Teacher functionality
+
+Create a simple invoice area, for example:
+
+    teacher/invoices.php
+    teacher/invoice-create.php
+    teacher/invoice-view.php
+    teacher/invoice-issue.php
+    teacher/invoice-cancel.php
+
+### Invoice list
+
+Let the logged-in Teacher select one of their own students or all their students; see invoice number, student, billing month, invoice/due date, total, status, and actions; generate a draft; open details; and issue/cancel drafts when permitted. Do not expose another Teacher’s invoices.
+
+### Generate draft invoice
+
+Create a CSRF-protected POST form.
+
+Required inputs: Student, billing month, invoice date.
+Optional input: due date.
+
+Validate ownership, active assignment, full-month selection, dates, duplicate non-cancelled invoice prevention, billable-item availability, applicable rules, and all generated amounts server-side. The browser must not submit authoritative totals, line items, status, or invoice number.
+
+### Invoice detail
+
+Create a read-only Teacher-owned invoice view with number/status, student, billing period, invoice/due date, each item’s description/quantity/unit rate/amount, subtotal, discount (₹0.00), total, and draft-only issue/cancel actions. Escape output.
+
+### Issue draft
+
+Use a CSRF-protected confirmation POST form. Only the owning Teacher may change DRAFT to ISSUED. Change only invoice status; never recalculate snapshot items. Write an audit entry.
+
+### Cancel draft
+
+Use a CSRF-protected confirmation POST form. Only the owning Teacher may change DRAFT to CANCELLED. Retain the header/items as history, and explain this. CANCELLED cannot become ISSUED.
+
+## Service design
+
+Create services/invoices.php to centralize:
+
+- Teacher-owned invoice and assignment lookup.
+- Invoice list/detail queries and item snapshots.
+- Month, invoice-date, due-date, and duplicate-period validation.
+- Effective billing-rule lookup by date and hourly attendance selection.
+- Integer-safe quantity, money, subtotal, and total calculations.
+- Transactional number reservation, draft creation, header/item writes, and activity logging.
+- Draft issue/cancel transitions and ownership enforcement.
+
+Do not duplicate invoice queries, generation rules, totals, or validation across pages. Use PDO prepared statements for all user-controlled values.
+
+## Activity log
+
+Use safe events:
+
+    INVOICE_CREATED
+    INVOICE_ISSUED
+    INVOICE_CANCELLED
+
+Log only minimal metadata such as invoice number, assignment ID, billing month, and resulting status. Never log passwords, hashes, credentials, or full item/remarks data.
+
+## Security and quality
+
+- Every state-changing form uses POST and CSRF validation.
+- Escape rendered values with htmlspecialchars().
+- Use prepared statements and transactions.
+- Never expose SQL errors, paths, credentials, or stack traces.
+- Validate IDs, dates, state transitions, and values server-side.
+- Preserve invoice/item history; never delete or recalculate an existing snapshot.
+- Do not add a framework or ORM.
+- Do not implement Phase 11 or later functionality.
+
+## Documentation
+
+Update README.md, docs/architecture.md, docs/database.md only if schema changes, docs/development-log.md, docs/testing.md, and docs/user-manual.md.
+
+Document the monthly-invoice policy, snapshots, hourly/fixed selection, deterministic rounding, number reservation, ownership, draft/issued/cancelled behaviour, activity events, and tests.
+
+## Testing
+
+Test at minimum:
+
+    Unauthenticated user -> Invoices page -> redirected
+    Administrator -> Invoices page -> denied
+    Student -> Invoices page -> denied
+    Teacher -> Invoices page -> allowed
+
+Ownership:
+
+    Teacher A -> own invoice -> allowed
+    Teacher A -> Teacher B assignment/invoice -> denied
+    Teacher A -> issue/cancel Teacher B invoice -> denied
+
+Generation and integrity:
+
+    Valid hourly attendance/rate -> draft with correct item, quantity, amount, subtotal, total
+    Valid fixed-monthly rule on first of month -> one monthly item
+    Cancelled/absent/leave/holiday attendance -> excluded
+    Inactive historical rule covering a session -> used
+    Missing/ambiguous rate -> rejected
+    No billable items -> rejected
+    Invalid/non-full billing month -> rejected
+    Due date before invoice date -> rejected
+    Duplicate non-cancelled assignment/month invoice -> rejected
+    Cancelled invoice allows a replacement draft for the same month
+    Sequence is unique and transactional
+    Failure rolls back sequence/header/items/activity log together
+
+History and state:
+
+    Snapshot values do not change after source attendance/billing changes
+    DRAFT -> ISSUED -> allowed
+    DRAFT -> CANCELLED -> allowed; header/items remain
+    ISSUED -> CANCELLED -> rejected in this phase
+    CANCELLED -> ISSUED -> rejected
+    Missing/invalid CSRF token -> rejected
+
+Clearly distinguish PASS, BLOCKED, and NOT APPLICABLE.
+
+## Final report format
+
+    PHASE 10 — INVOICES
+
+    Status:
+    - Completed / Completed with issues / Blocked
+
+    Implemented:
+    - ...
+
+    Files created:
+    - ...
+
+    Files modified:
+    - ...
+
+    Database changes:
+    - ...
+
+    Tests performed:
+    - PASS:
+    - BLOCKED:
+
+    Security decisions:
+    - ...
+
+    Known issues:
+    - ...
+
+    Next recommended phase:
+    - ...
+
+Do not proceed automatically to Phase 11.

@@ -1,0 +1,1038 @@
+# TUMAN — Phase 03
+
+## Authentication and Authorization
+
+You are continuing development of **Tuman — Tuition Management System**.
+
+Phase 00 established the architecture and Phase 02 established the MySQL database foundation.
+
+Your task now is to implement:
+
+# Phase 03 — Authentication and Authorization
+
+This phase establishes the security foundation upon which the Administrator, Teacher and Student modules will be built.
+
+**Do not implement the complete Administrator, Teacher or Student business modules yet.**
+
+---
+
+# 1. IMPORTANT: INSPECT FIRST
+
+Before making any changes:
+
+1. Inspect the entire current repository.
+2. Read:
+
+   * `docs/architecture.md`
+   * `docs/database.md`
+   * `docs/development-log.md`
+   * `docs/testing.md`
+   * `docs/user-manual.md`
+   * `README.md`
+3. Inspect the current PHP configuration and database connection code.
+4. Inspect the actual `database/schema.sql`.
+5. Inspect any existing authentication-related files, even if they are only placeholders.
+6. Check the current Git/project structure.
+
+Do not assume that the documentation and code are identical.
+
+The **actual implementation is the immediate source of truth**, while the documentation describes the intended architecture.
+
+Preserve sound decisions already made in Phase 01 and Phase 02.
+
+---
+
+# 2. CURRENT DATABASE CONTEXT
+
+Phase 02 has already established the following important database design.
+
+The main authentication table is:
+
+```text
+tmn_users
+```
+
+It contains, among other fields:
+
+* `id`
+* `username`
+* `password_hash`
+* `role`
+* `status`
+* `created_at`
+* `updated_at`
+* `last_login_at`
+
+The supported roles are:
+
+```text
+ADMINISTRATOR
+TEACHER
+STUDENT
+```
+
+The supported account states include:
+
+```text
+ACTIVE
+INACTIVE
+```
+
+Use the actual values defined in `database/schema.sql`.
+
+Do not create a second user/authentication table.
+
+Do not redesign the existing authentication database unnecessarily.
+
+---
+
+# 3. PHASE 03 OBJECTIVE
+
+At the end of this phase, Tuman should have a working authentication foundation capable of:
+
+* Login
+* Logout
+* Password verification
+* Session management
+* Authentication guards
+* Role-based authorization
+* Protected pages
+* Inactive-account rejection
+* Session regeneration
+* CSRF protection for state-changing forms
+* Safe authentication error handling
+* Last-login recording where appropriate
+
+The system must be ready for later Administrator, Teacher and Student modules to build upon.
+
+---
+
+# 4. LOGIN
+
+Implement the Tuman login functionality.
+
+The login form should accept:
+
+```text
+Username
+Password
+```
+
+The login process should:
+
+1. Validate that required fields are present.
+2. Look up the user safely using PDO.
+3. Verify the password using `password_verify()`.
+4. Check that the account is active.
+5. Regenerate the session ID after successful authentication.
+6. Store the minimum necessary authenticated identity information in the session.
+7. Record `last_login_at` where appropriate.
+8. Redirect the user according to role.
+
+Do not store the plaintext password in the session.
+
+Do not log the plaintext password.
+
+Do not expose password hashes to the browser.
+
+---
+
+# 5. PASSWORD HANDLING
+
+Passwords must be handled using PHP's password hashing API.
+
+Use:
+
+```php
+password_hash()
+password_verify()
+```
+
+Do not implement your own password hashing algorithm.
+
+Do not use:
+
+```text
+MD5
+SHA1
+plain SHA256
+plaintext passwords
+```
+
+for password storage.
+
+If password creation/reset functionality is required to support the authentication foundation, use `password_hash()`.
+
+Do not create an elaborate password-management module yet.
+
+---
+
+# 6. SESSION DESIGN
+
+Implement secure PHP session handling.
+
+After successful login:
+
+```text
+Session ID
+    ↓
+regenerate
+    ↓
+authenticated session
+```
+
+At minimum, store:
+
+```text
+authenticated user ID
+authenticated role
+```
+
+or the smallest equivalent information required by the application.
+
+Do not store unnecessary user information in the session.
+
+Where appropriate, configure secure session cookie properties according to the environment, including:
+
+* HttpOnly
+* SameSite
+* Secure when HTTPS is actually being used
+
+Do not enable settings that would make local HTTP development impossible without documenting the requirement.
+
+---
+
+# 7. SESSION FIXATION PROTECTION
+
+The session identifier must be regenerated after successful authentication.
+
+Use the appropriate PHP session mechanism.
+
+Verify that an attacker cannot simply retain a pre-login session identifier and continue using it after another user logs in.
+
+Document this security decision.
+
+---
+
+# 8. LOGOUT
+
+Implement logout.
+
+Logout must:
+
+1. Clear authentication state.
+2. Destroy the session appropriately.
+3. Prevent the previous authenticated session from continuing to grant access.
+4. Redirect the user to a safe public page such as the login page or home page.
+
+Do not merely unset one session variable and consider the user fully logged out.
+
+---
+
+# 9. AUTHENTICATION GUARD
+
+Create a reusable authentication guard/helper.
+
+The purpose is to allow later protected pages to say conceptually:
+
+```text
+Require authenticated user
+```
+
+without duplicating authentication logic on every page.
+
+The guard should:
+
+* Check whether the user is authenticated.
+* Redirect unauthenticated users appropriately.
+* Avoid exposing sensitive information.
+
+The exact file/class/function design should follow the architecture already established in Phase 01.
+
+Do not introduce a large framework.
+
+---
+
+# 10. ROLE GUARDS
+
+Create reusable role authorization functionality.
+
+Later modules will need functionality conceptually equivalent to:
+
+```text
+Require Administrator
+Require Teacher
+Require Student
+```
+
+The role guard must be enforced server-side.
+
+For example:
+
+```text
+/admin/...     → Administrator only
+/teacher/...   → Teacher only
+/student/...   → Student only
+```
+
+But the directory structure alone is NOT a security mechanism.
+
+A Teacher who manually enters an Administrator URL must be rejected.
+
+A Student who manually enters a Teacher URL must be rejected.
+
+An Administrator should not automatically be assumed to have every future Teacher/Student operation unless the application's permission model explicitly says so.
+
+Document the initial role policy.
+
+---
+
+# 11. ROLE REDIRECTION
+
+After successful login:
+
+```text
+ADMINISTRATOR → Administrator dashboard area
+TEACHER       → Teacher dashboard area
+STUDENT       → Student dashboard area
+```
+
+However, at this phase the actual role dashboards do not need to be fully implemented.
+
+If necessary, create simple placeholder protected pages such as:
+
+```text
+/admin/index.php
+/teacher/index.php
+/student/index.php
+```
+
+that demonstrate successful authorization.
+
+These are **authentication/authorization test pages**, not the final business dashboards.
+
+Clearly identify them as placeholders.
+
+---
+
+# 12. INACTIVE USERS
+
+An inactive user must not be allowed to authenticate.
+
+For example:
+
+```text
+Username exists
+Password is correct
+Status = INACTIVE
+```
+
+must still result in login rejection.
+
+Use a generic and safe login error.
+
+Do not reveal unnecessary information such as:
+
+```text
+"This username exists but has been deactivated."
+```
+
+unless there is a deliberate product reason to expose that distinction.
+
+Prefer a message that does not help an attacker enumerate accounts.
+
+---
+
+# 13. USER ENUMERATION
+
+Do not reveal whether a username exists through noticeably different authentication messages.
+
+For example, avoid separate public messages such as:
+
+```text
+Username does not exist.
+Password is incorrect.
+```
+
+Prefer a generic authentication failure message.
+
+Be careful not to introduce unnecessary timing differences through obviously different processing paths.
+
+Do not over-engineer this, but follow normal authentication security practices.
+
+---
+
+# 14. CSRF PROTECTION
+
+Implement a reusable CSRF protection mechanism for state-changing forms.
+
+At minimum, it should support:
+
+* Generating a token
+* Storing it securely in the session
+* Including it in relevant forms
+* Validating it on submission
+* Rejecting invalid or missing tokens
+
+State-changing operations include, for example:
+
+```text
+POST
+PUT
+PATCH
+DELETE
+```
+
+as applicable to the current application architecture.
+
+The login form may be protected by CSRF as well if appropriate to the implementation.
+
+Do not create a token system that is difficult for later modules to reuse.
+
+Document how later developers should use the CSRF helper.
+
+---
+
+# 15. INPUT VALIDATION
+
+Validate login input server-side.
+
+At minimum:
+
+* Username is present.
+* Username is within reasonable length limits.
+* Password is present.
+
+Do not unnecessarily impose restrictive username rules that conflict with the existing database design.
+
+Use safe parameterized queries.
+
+---
+
+# 16. DATABASE ACCESS
+
+Continue using the existing PDO architecture from Phase 02.
+
+Do not introduce another database connection mechanism.
+
+Do not concatenate user input into SQL.
+
+For example, do not build SQL like:
+
+```text
+SELECT ... WHERE username = '$username'
+```
+
+Use parameterized queries.
+
+Follow the database error-handling approach already established in Phase 02.
+
+---
+
+# 17. LAST LOGIN
+
+Where supported by the existing schema, update:
+
+```text
+last_login_at
+```
+
+only after successful authentication.
+
+Do not update it for failed attempts.
+
+Use a safe and consistent timestamp strategy matching the existing application/database timezone policy.
+
+Do not introduce an inconsistent timezone convention.
+
+---
+
+# 18. AUTHENTICATION ERROR HANDLING
+
+Authentication failures should:
+
+* Be safe
+* Be understandable
+* Not reveal sensitive information
+* Not expose SQL/database errors
+* Not expose PHP warnings or stack traces
+
+For example:
+
+```text
+Invalid username or password.
+```
+
+is preferable to exposing internal database information.
+
+Development logs may contain technical information where appropriate, but never log plaintext passwords.
+
+---
+
+# 19. AUTHENTICATED PAGE ACCESS
+
+Create a reusable mechanism for protecting pages.
+
+Test at least these cases:
+
+```text
+Not logged in → /admin/...     → rejected
+Not logged in → /teacher/...   → rejected
+Not logged in → /student/...   → rejected
+```
+
+and:
+
+```text
+Administrator → admin area     → allowed
+Teacher       → teacher area   → allowed
+Student       → student area   → allowed
+```
+
+Cross-role access must be rejected.
+
+---
+
+# 20. AUTHORIZATION MUST BE SERVER-SIDE
+
+This is a fundamental Tuman rule.
+
+Do not consider the following sufficient:
+
+```text
+Hide Admin menu from Teacher
+```
+
+The server must still reject:
+
+```text
+Teacher → manually enter Admin URL
+```
+
+Likewise:
+
+```text
+Student → manually enter Teacher URL
+```
+
+must be rejected.
+
+Later Teacher/Student ownership checks will build on this authorization layer.
+
+---
+
+# 21. OWNERSHIP AUTHORIZATION — PREPARE, DO NOT IMPLEMENT
+
+Phase 03 establishes role authorization.
+
+Do NOT yet implement complete teacher-student ownership logic.
+
+However, design the authorization helpers so later phases can enforce rules such as:
+
+```text
+Teacher A → only students assigned to Teacher A
+Student   → only own records
+```
+
+The database already contains:
+
+```text
+tmn_teacher_students
+```
+
+and later business modules will use it.
+
+Do not duplicate ownership logic throughout the application.
+
+---
+
+# 22. SECURITY HEADERS
+
+Inspect whether a minimal set of sensible security-related HTTP headers can be introduced without interfering with the current application.
+
+If implemented, document them.
+
+Do not blindly add an aggressive Content Security Policy that breaks future JavaScript/CSS functionality.
+
+Security improvements should remain practical and understandable.
+
+---
+
+# 23. LOGIN BRUTE-FORCE PROTECTION
+
+Do not build a large authentication-security system in this phase.
+
+However, inspect whether a simple foundation for future login throttling/rate limiting is appropriate.
+
+If you implement a basic protection mechanism, document it.
+
+If not implemented, record it as a future security enhancement.
+
+Do not create an unnecessarily complex table or subsystem merely for theoretical protection.
+
+---
+
+# 24. PASSWORD RESET
+
+Do NOT implement email-based password reset in Phase 03 unless the existing project already contains an appropriate requirement.
+
+The current phase is authentication and authorization, not account-management functionality.
+
+Administrator password management will be handled in a later phase.
+
+---
+
+# 25. USER REGISTRATION
+
+Do NOT implement public registration.
+
+Tuman does not currently require:
+
+```text
+Sign Up
+Register
+Create Account
+```
+
+The Administrator will later create users.
+
+Students will later be able to update their profile, but that is not the same as public account registration.
+
+---
+
+# 26. DASHBOARD PLACEHOLDERS
+
+If required for testing, create minimal protected role landing pages.
+
+For example:
+
+```text
+Administrator Dashboard
+Teacher Dashboard
+Student Dashboard
+```
+
+They should contain only enough information to verify:
+
+* Login worked.
+* Correct role was identified.
+* Correct authorization was applied.
+* Logout works.
+
+Do not implement actual business functionality on these pages.
+
+---
+
+# 27. DO NOT IMPLEMENT THESE FEATURES YET
+
+Do not implement:
+
+* Administrator user CRUD
+* Teacher student enrollment
+* Responsibilities management
+* Attendance management
+* Billing
+* Invoice generation
+* Payment management
+* Email delivery
+* PDF generation
+* Student profile management
+* Student attendance screens
+* Student invoice screens
+* Reports
+
+Those belong to later phases.
+
+---
+
+# 28. TESTING REQUIREMENTS
+
+Testing is a major part of this phase.
+
+Create or update tests appropriate to the project's existing testing approach.
+
+At minimum test:
+
+### Successful authentication
+
+```text
+Active user
+Correct username
+Correct password
+→ Login succeeds
+```
+
+### Wrong password
+
+```text
+Correct username
+Wrong password
+→ Login fails
+```
+
+### Unknown username
+
+```text
+Unknown username
+→ Login fails
+```
+
+### Inactive user
+
+```text
+Inactive user
+Correct password
+→ Login fails
+```
+
+### Logout
+
+```text
+Login
+Logout
+Visit protected page
+→ Access denied
+```
+
+### Role authorization
+
+```text
+Administrator → Admin area → allowed
+Teacher       → Admin area → denied
+Student       → Admin area → denied
+
+Teacher       → Teacher area → allowed
+Student       → Teacher area → denied
+
+Student       → Student area → allowed
+Teacher       → Student area → denied
+```
+
+### Direct URL access
+
+Attempt to access protected URLs without logging in.
+
+Expected:
+
+```text
+Rejected / redirected
+```
+
+### Session regeneration
+
+Verify that the session identifier changes after successful login.
+
+### CSRF
+
+Test:
+
+```text
+Valid CSRF token → accepted
+Missing token    → rejected
+Invalid token    → rejected
+```
+
+for at least one state-changing test form.
+
+### SQL injection
+
+Test that malicious-looking username input does not alter the query.
+
+Do not use unsafe dynamic SQL merely to perform this test.
+
+### XSS
+
+Verify that authentication-related user input is not rendered unsafely.
+
+---
+
+# 29. DATABASE ENVIRONMENT ISSUE
+
+The Phase 02 development log reports that:
+
+> The local MySQL service is running but rejects the standard blank-password root account.
+
+Do NOT:
+
+* Guess database credentials.
+* Add credentials to source control.
+* Change `.env` to an invented password.
+* Disable MySQL authentication/security merely to make the test pass.
+
+If valid local credentials are unavailable:
+
+1. Continue with code-level implementation.
+2. Run all tests that do not require live MySQL.
+3. Clearly identify tests blocked by database connectivity.
+4. Do not falsely report live database authentication as tested.
+
+If a valid `.env` already exists locally, use it without exposing its secrets.
+
+Never print or commit the credentials.
+
+---
+
+# 30. TEST CREDENTIALS
+
+If Phase 02 seed data is used, inspect `database/seed.sql` rather than assuming credentials.
+
+The documented development-only password is:
+
+```text
+TumanDemo2026!
+```
+
+Treat this as development/test data only.
+
+Do not use it as a production credential.
+
+Do not copy it into application source code unnecessarily.
+
+---
+
+# 31. DOCUMENTATION
+
+Update:
+
+```text
+docs/architecture.md
+docs/development-log.md
+docs/testing.md
+docs/user-manual.md
+README.md
+```
+
+where appropriate.
+
+### architecture.md
+
+Document:
+
+* Authentication flow
+* Session design
+* Authentication guard
+* Role guard
+* CSRF mechanism
+* Security decisions
+* Any deviations from the original architecture
+
+### development-log.md
+
+Add:
+
+```text
+Phase 03 — Authentication and authorization
+
+Date:
+Status:
+
+Implemented:
+...
+
+Tests:
+...
+
+Environment limitations:
+...
+
+Known issues:
+...
+
+Next recommended phase:
+```
+
+### testing.md
+
+Add the actual authentication and authorization tests performed.
+
+Clearly distinguish:
+
+```text
+PASS
+BLOCKED
+NOT APPLICABLE
+```
+
+Do not claim tests passed if they could not actually be executed.
+
+### user-manual.md
+
+Add basic instructions for:
+
+* Signing in
+* Signing out
+* What happens when an account is inactive
+* Role-based landing pages if applicable
+
+---
+
+# 32. CODE QUALITY
+
+Follow the architecture already established.
+
+Keep authentication functionality reusable.
+
+Avoid putting authentication logic directly into every page.
+
+Avoid duplicated code.
+
+Avoid unnecessary frameworks.
+
+Avoid unnecessary abstraction.
+
+The resulting code should be understandable to students studying PHP.
+
+---
+
+# 33. IMPORTANT SECURITY RULE
+
+Never trust:
+
+```text
+$_GET
+$_POST
+$_REQUEST
+cookies
+hidden form fields
+URL parameters
+```
+
+to determine the user's identity or permissions.
+
+The authenticated identity must come from the secure server-side session.
+
+Role authorization must be based on trusted server-side authentication state.
+
+Later ownership authorization must use database relationships and server-side checks.
+
+---
+
+# 34. NO BUSINESS-LOGIC LEAKAGE
+
+Authentication code should establish identity and access.
+
+It should not contain:
+
+* Invoice calculations
+* Attendance calculations
+* Billing rules
+* Payment calculations
+* Teacher-student business logic
+
+Those belong to later modules/services.
+
+Keep the authentication layer focused.
+
+---
+
+# 35. PHASE COMPLETION CHECKLIST
+
+Before declaring Phase 03 complete, verify:
+
+* [ ] Existing repository inspected
+* [ ] Phase 00/02 documentation reviewed
+* [ ] Existing `tmn_users` schema inspected
+* [ ] Login implemented
+* [ ] Password verification implemented
+* [ ] Plaintext passwords never stored
+* [ ] Session created securely
+* [ ] Session ID regenerated after login
+* [ ] Logout implemented correctly
+* [ ] Authentication guard implemented
+* [ ] Administrator role guard implemented
+* [ ] Teacher role guard implemented
+* [ ] Student role guard implemented
+* [ ] Inactive accounts rejected
+* [ ] Generic authentication failure messaging implemented
+* [ ] CSRF protection implemented/reusable
+* [ ] Protected URLs tested
+* [ ] Cross-role access tested
+* [ ] Last-login handling implemented where appropriate
+* [ ] SQL injection protection verified
+* [ ] No secrets committed
+* [ ] Documentation updated
+* [ ] Testing documentation updated
+* [ ] Development log updated
+* [ ] No later-phase business modules unnecessarily implemented
+
+---
+
+# 36. FINAL REPORT
+
+At the end of the work, provide this report:
+
+```text
+PHASE 03 — AUTHENTICATION AND AUTHORIZATION
+
+Status:
+Completed / Completed with limitations / Blocked
+
+Implemented:
+- ...
+
+Authentication:
+- Login:
+- Logout:
+- Password handling:
+- Session handling:
+
+Authorization:
+- Administrator:
+- Teacher:
+- Student:
+
+Security:
+- CSRF:
+- Session fixation protection:
+- Input validation:
+- SQL injection protection:
+- Other:
+
+Files created:
+- ...
+
+Files modified:
+- ...
+
+Database changes:
+- ...
+
+Tests performed:
+- ...
+
+Tests blocked by environment:
+- ...
+
+Known issues:
+- ...
+
+Documentation updated:
+- ...
+
+Next recommended phase:
+- Phase 04
+```
+
+Do not report a test as successful unless it was actually executed.
+
+---
+
+# FINAL INSTRUCTION
+
+Implement **ONLY Phase 03 — Authentication and Authorization**.
+
+Start by inspecting the actual current project.
+
+Use the existing Phase 02 database and architecture.
+
+Do not rebuild the database unnecessarily.
+
+Do not implement the later business modules.
+
+Do not invent credentials.
+
+Do not expose secrets.
+
+Do not proceed automatically to Phase 04.
+
+When Phase 03 is complete, stop and provide the final report.

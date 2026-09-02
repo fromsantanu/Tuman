@@ -1,0 +1,5 @@
+<?php
+declare(strict_types=1);require_once dirname(__DIR__).'/includes/auth.php';require_once __DIR__.'/layout.php';require_once dirname(__DIR__).'/services/student_portal.php';$current=tuman_require_role('STUDENT');$invoices=tuman_student_invoices(tuman_database(),$current['id']);tuman_student_page_start('My invoices');
+?>
+<h1>My invoices</h1><div style="overflow-x:auto"><table><thead><tr><th>Invoice</th><th>Period</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody><?php foreach($invoices as $invoice): ?><tr><td><?= htmlspecialchars($invoice['invoice_number'],ENT_QUOTES,'UTF-8') ?></td><td><?= htmlspecialchars($invoice['billing_period_from'].' to '.$invoice['billing_period_to'],ENT_QUOTES,'UTF-8') ?></td><td><?= htmlspecialchars(tuman_invoice_money_label($invoice['total_amount'],$invoice['currency_code']),ENT_QUOTES,'UTF-8') ?></td><td><?= htmlspecialchars($invoice['status'],ENT_QUOTES,'UTF-8') ?></td><td><a href="/Tuman/student/invoice-view.php?id=<?= (int)$invoice['id'] ?>">View</a></td></tr><?php endforeach; ?></tbody></table></div><?php if($invoices===[]): ?><p>No invoices are available.</p><?php endif; ?>
+<?php tuman_student_page_end(); ?>

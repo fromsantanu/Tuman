@@ -1,0 +1,189 @@
+# TUMAN — Phase 04
+
+## Public Website
+
+Continue development of **Tuman — Tuition Management System**.
+
+Phase 03 authentication and authorization is complete. Implement **only Phase 04 — Public Website**.
+
+## Inspect first
+
+Before making changes:
+
+1. Inspect the complete repository.
+2. Read `README.md` and all files in `docs/`.
+3. Review existing public/authentication files, especially:
+   - `public/login.php`
+   - `public/logout.php`
+   - `includes/auth.php`
+   - `includes/session.php`
+   - `includes/csrf.php`
+4. Preserve the established PHP, session, CSRF, and role-authorization approach.
+5. Do not assume that a live MySQL connection is available. The existing `.env` credential limitation must not prevent public-page work.
+
+## Objective
+
+Create a clean, responsive public-facing website for Tuman.
+
+The public website must provide:
+
+- Home page
+- About page
+- Clear navigation
+- A link to the existing login page
+- Consistent Tuman branding:
+  - **Tuman**
+  - **Tuition Management System**
+
+The public website should be simple, professional, accessible, and understandable. Do not over-design it or introduce a framework.
+
+## Required pages
+
+### Home page
+
+Create or implement `public/index.php`.
+
+It should include:
+
+- Tuman name and “Tuition Management System” subtitle
+- A short explanation of the system’s purpose
+- A clear call to action to sign in
+- A concise overview of the intended benefits for:
+  - Administrators
+  - Teachers
+  - Students
+- Navigation to Home, About, and Login
+
+Do not claim that unimplemented features are currently available. Describe them as the purpose or planned capabilities of Tuman where necessary.
+
+### About page
+
+Create or implement `public/about.php`.
+
+It should explain:
+
+- What Tuman is
+- Its intended users: individual tuition teachers and small tuition organisations
+- The three user roles
+- The project’s focus on secure, understandable tuition management
+- Planned areas such as student management, attendance, billing, invoices, and payments
+- The technology approach at a high level: PHP, MySQL, PDO, sessions, and secure password hashing
+
+Keep this page informative but concise.
+
+## Shared layout and styling
+
+Create reusable public layout components where justified, such as a shared header/navigation and footer. Do not duplicate navigation markup unnecessarily.
+
+Create a modest CSS stylesheet under `assets/css/` and use it from the public pages.
+
+The design should:
+
+- Work on desktop and mobile browsers
+- Use readable typography and sufficient contrast
+- Have clear navigation and button states
+- Use semantic HTML
+- Avoid external dependencies, CDNs, frameworks, and remote fonts unless already present in the repository
+- Keep JavaScript optional; do not require it for basic navigation
+
+Use output escaping for any dynamic value that is rendered.
+
+## Authentication integration
+
+Preserve the existing authentication behaviour.
+
+- The Login navigation link must point to `public/login.php`.
+- If a user is already authenticated and visits the login page, preserve its existing role-based redirect.
+- Do not alter password handling, session storage, CSRF behaviour, role guards, database schema, or seed data unless a small, necessary correction is discovered.
+- Do not expose protected placeholder pages through public navigation.
+
+If necessary, improve page URL construction so it remains reliable when the project is installed under a different web-server path. Document any such decision.
+
+## Scope restrictions
+
+Do not implement:
+
+- Administrator user management
+- Teacher dashboards or student management
+- Attendance screens
+- Billing, invoices, or payments
+- Registration
+- Password reset
+- Email or PDF features
+- Reports
+- A full dashboard UI
+
+The existing role landing pages must remain minimal authorization test placeholders.
+
+## Security and quality
+
+- Keep public pages accessible without a session or database connection.
+- Do not place credentials, passwords, or configuration secrets in source code.
+- Do not trust request parameters for authorization.
+- Preserve CSRF protection for state-changing forms.
+- Avoid raw PHP errors or stack traces in public pages.
+- Use clear, student-friendly code and comments only where they explain a non-obvious choice.
+
+## Documentation
+
+Update, where appropriate:
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/development-log.md`
+- `docs/testing.md`
+- `docs/user-manual.md`
+
+Document:
+
+- The public page structure
+- Shared layout/styling decisions
+- Navigation behaviour
+- What was tested
+- Any remaining database-related test limitation
+
+## Testing
+
+Test at minimum:
+
+- Home page renders.
+- About page renders.
+- Navigation links work.
+- Login link points to the existing login page.
+- Public pages remain accessible without authentication.
+- Login page behaviour is not broken.
+- HTML/PHP syntax is valid.
+- Layout is usable at both desktop and narrow/mobile widths.
+- No protected role placeholder is linked from public navigation.
+
+Clearly mark database-dependent authentication tests as blocked if valid local MySQL credentials are still unavailable. Do not claim unperformed browser or database tests passed.
+
+## Final report format
+
+```text
+PHASE 04 — PUBLIC WEBSITE
+
+Status:
+- Completed / Completed with issues / Blocked
+
+Implemented:
+- ...
+
+Files created:
+- ...
+
+Files modified:
+- ...
+
+Tests performed:
+- PASS:
+- BLOCKED:
+
+Known issues:
+- ...
+
+Next recommended phase:
+- ...
+```
+
+Do not proceed automatically to Phase 05.

@@ -1,0 +1,357 @@
+# TUMAN — Phase 06
+
+## Teacher Module — Student Management
+
+Continue development of **Tuman — Tuition Management System**.
+
+Phase 05 is complete and the separate MySQL database connection is working. Implement **only Phase 06 — Teacher Module**.
+
+## Inspect first
+
+Before making changes:
+
+1. Inspect the complete repository.
+2. Read `README.md` and all files in `docs/`.
+3. Review:
+   - `database/schema.sql`
+   - `config/database.php`
+   - `includes/auth.php`
+   - `includes/csrf.php`
+   - `services/admin_users.php`
+   - `admin/` pages
+   - Existing Teacher placeholder: `teacher/index.php`
+4. Preserve established decisions:
+   - PDO and prepared statements
+   - CSRF protection
+   - Session and role guards
+   - All table names use the `tmn_` prefix
+   - Existing database schema is the immediate source of truth
+
+Do not rewrite working Administrator, public-site, authentication, or database functionality unnecessarily.
+
+## Objective
+
+Build the Teacher module’s student-management foundation.
+
+An authenticated `TEACHER` must be able to:
+
+- View only their own assigned students
+- Enrol a new student
+- View a student’s basic profile
+- Edit permitted student profile information
+- Activate or deactivate a student relationship where appropriate
+- View current and previous teacher-student assignment history for their own students
+
+Do not implement Responsibilities, Attendance, Billing, Invoices, Payments, Email, PDF, Reports, or Student self-service screens in this phase.
+
+## Authorization rules
+
+Every Teacher page must enforce:
+
+```php
+tuman_require_role('TEACHER')
+```
+
+A Teacher may access only:
+
+- Their own `tmn_teacher_profiles` record
+- Students linked to them through `tmn_teacher_students`
+- Student-profile information for those linked students
+- Assignment history for their own relationships
+
+A Teacher must never access or modify students assigned only to another Teacher.
+
+Do not trust:
+
+```text
+GET IDs
+POST IDs
+hidden form fields
+URL parameters
+```
+
+Ownership must be enforced server-side through queries scoped to the logged-in Teacher’s user ID.
+
+For example, do not fetch a student only by:
+
+```sql
+WHERE student_user_id = :student_id
+```
+
+Use a query that confirms the relationship belongs to the signed-in Teacher.
+
+## Existing database entities
+
+Use the existing tables:
+
+```text
+tmn_users
+tmn_teacher_profiles
+tmn_student_profiles
+tmn_teacher_students
+tmn_activity_log
+```
+
+Do not create a second authentication system or duplicate student data.
+
+Important existing values:
+
+```text
+Roles: ADMIN, TEACHER, STUDENT
+Account status: ACTIVE, INACTIVE
+Assignment status: ACTIVE, INACTIVE
+```
+
+## Teacher pages
+
+Create a simple Teacher section as appropriate, for example:
+
+```text
+teacher/
+├── index.php
+├── students.php
+├── student-create.php
+├── student-view.php
+├── student-edit.php
+└── student-status.php
+```
+
+The exact file names may differ if the existing project structure suggests a clearer simple design.
+
+### Teacher landing page
+
+Replace the Phase 03 Teacher placeholder with a real Teacher landing page containing links to:
+
+- My students
+- Enrol student
+- Logout
+
+Do not add dashboards, reports, billing summaries, or unrelated features.
+
+### My students list
+
+Create a page that lists only the logged-in Teacher’s students.
+
+Show useful basic information such as:
+
+- Student name
+- Username
+- Contact information where available
+- Assignment start date
+- Assignment status
+- View/edit actions
+
+Do not show students belonging to another Teacher.
+
+### Enrol student
+
+Create a CSRF-protected Teacher workflow to enrol a new student.
+
+It should:
+
+1. Create a `tmn_users` account with role `STUDENT`.
+2. Hash the password using `password_hash()`.
+3. Create the related `tmn_student_profiles` record.
+4. Create an active `tmn_teacher_students` relationship for the logged-in Teacher.
+5. Write a safe activity-log entry.
+6. Use a database transaction so partial student records are not left behind if one step fails.
+
+Collect only information needed at this stage, for example:
+
+- Username
+- Temporary password
+- Student first name
+- Student last name
+- Email, if supplied
+- Phone, if supplied
+- Guardian name and phone, if supplied
+- Address fields, if required by the chosen form design
+
+Validate all data server-side.
+
+Requirements:
+
+- Username is required and unique.
+- Password must meet the existing project’s minimum password rule.
+- The role must always be `STUDENT`; do not trust a role field supplied by the browser.
+- Email must be valid when supplied.
+- Duplicate usernames and duplicate email addresses must be handled safely.
+- Passwords and password hashes must never be displayed or logged.
+
+### Student profile view and edit
+
+A Teacher may view and update permitted profile fields for students assigned to that Teacher.
+
+Permitted profile information may include:
+
+- First name
+- Last name
+- Email
+- Phone
+- Address
+- Guardian name
+- Guardian phone
+
+Teachers must not edit:
+
+- Role
+- Username, unless specifically justified and documented
+- Password hash
+- Account status directly
+- Billing or financial records
+- Another Teacher’s assignment
+
+Use a separate CSRF-protected password-reset function only if truly necessary for enrolment support. Do not build a broad Teacher account-management module.
+
+### Assignment status
+
+Provide a CSRF-protected way to deactivate an active Teacher-student assignment.
+
+Rules:
+
+- Do not delete the student, user account, profile, or assignment row.
+- Preserve historical assignment records.
+- When deactivating, set the assignment status to `INACTIVE` and set an appropriate `end_date`.
+- Do not allow a Teacher to deactivate another Teacher’s assignment.
+- Clearly explain that deactivation preserves history.
+
+Do not allow a Teacher to assign an existing student already assigned to another Teacher in this phase unless the implementation has a documented, ownership-safe process. The initial rule remains one active Teacher per Student.
+
+## Activity logging
+
+Use `tmn_activity_log` through a reusable helper.
+
+Record safe events such as:
+
+```text
+STUDENT_ENROLLED
+STUDENT_PROFILE_UPDATED
+TEACHER_STUDENT_STATUS_CHANGED
+```
+
+Do not log passwords, password hashes, or unnecessarily sensitive personal details.
+
+## Security requirements
+
+- All Teacher pages require `TEACHER` role authorization.
+- Ownership checks must be in every student/assignment query.
+- Use PDO prepared statements.
+- Escape output rendered into HTML.
+- Use POST and CSRF validation for all changes.
+- Return safe errors for missing, invalid, or unauthorised student IDs.
+- A manipulated student ID must not reveal whether another Teacher’s student exists.
+- Use transactions for multi-table enrolment.
+- Do not physically delete historical data.
+
+## Database changes
+
+Do not modify the schema unless a genuine limitation is found.
+
+If a schema change is necessary:
+
+1. Add it through a versioned SQL migration or clearly documented schema update.
+2. Use `tmn_` table naming.
+3. Document the reason and migration procedure.
+4. Preserve existing seed data and functionality.
+
+## Documentation
+
+Update:
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/database.md` if schema changes occur
+- `docs/development-log.md`
+- `docs/testing.md`
+- `docs/user-manual.md`
+
+Document:
+
+- Teacher permissions
+- Student ownership enforcement
+- Enrolment transaction design
+- Student deactivation/history behaviour
+- Tests performed
+
+## Testing
+
+Test at minimum:
+
+```text
+Unauthenticated user → Teacher page → redirected
+Administrator → Teacher page → denied
+Student → Teacher page → denied
+Teacher → own Teacher page → allowed
+```
+
+Ownership tests:
+
+```text
+Teacher A → own student → allowed
+Teacher A → Teacher B student ID → denied
+Teacher A → modify Teacher B student → denied
+```
+
+Enrolment tests:
+
+```text
+Valid student enrolment → user, profile, and assignment created
+Duplicate username → rejected
+Invalid email → rejected
+Invalid/missing CSRF token → rejected
+Failed enrolment step → transaction rolls back
+```
+
+Assignment tests:
+
+```text
+Teacher deactivates own student relationship → assignment becomes INACTIVE
+Teacher attempts to deactivate another Teacher’s relationship → denied
+Student/history records remain available after deactivation
+```
+
+Clearly distinguish:
+
+```text
+PASS
+BLOCKED
+NOT APPLICABLE
+```
+
+Do not implement Phase 07 or later functionality.
+
+## Final report format
+
+```text
+PHASE 06 — TEACHER MODULE
+
+Status:
+- Completed / Completed with issues / Blocked
+
+Implemented:
+- ...
+
+Files created:
+- ...
+
+Files modified:
+- ...
+
+Database changes:
+- ...
+
+Tests performed:
+- PASS:
+- BLOCKED:
+
+Security decisions:
+- ...
+
+Known issues:
+- ...
+
+Next recommended phase:
+- ...
+```
+
+Do not proceed automatically to Phase 07.

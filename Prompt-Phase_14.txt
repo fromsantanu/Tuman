@@ -1,0 +1,7 @@
+# TUMAN — Phase 14
+
+## Email Notifications
+
+Implement secure, Teacher-owned invoice, payment-receipt, and payment-reminder email notifications. Reuse `tmn_email_log` as an auditable outbox. Require SMTP configuration in `.env`; when delivery is disabled or unconfigured, queue records as `PENDING` and never claim they were sent.
+
+Only email the student attached to a Teacher-owned invoice/payment. Use server-generated subjects and bodies, currency-coded amounts, and no credentials or bank details in logs. Provide Teacher pages to send an invoice notice, valid-payment receipt, and reminder for an unpaid issued invoice. Enforce Teacher role, ownership queries, POST, and CSRF. Do not add automatic scheduling, payment gateways, or unrelated features.

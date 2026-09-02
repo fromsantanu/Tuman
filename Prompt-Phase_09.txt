@@ -1,0 +1,317 @@
+# TUMAN — Phase 09
+
+## Billing Rules Module
+
+Continue development of **Tuman — Tuition Management System**.
+
+Phase 08 is complete. Implement **only Phase 09 — Billing Rules**.
+
+## Inspect first
+
+Before making changes:
+
+1. Inspect the complete repository.
+2. Read `README.md` and every file in `docs/`.
+3. Review:
+   - `database/schema.sql`
+   - `database/seed.sql`
+   - `services/teacher_students.php`
+   - `services/attendance.php`
+   - `services/activity_log.php`
+   - `includes/auth.php`
+   - `includes/csrf.php`
+   - Current `teacher/` pages
+4. Preserve the existing PDO, CSRF, role guard, transaction, ownership-query, activity-log, and `tmn_` table-prefix conventions.
+
+Do not rewrite working Administrator, authentication, public-site, Teacher student-management, Responsibilities, or Attendance functionality unnecessarily.
+
+## Objective
+
+Build the Teacher Billing Rules module.
+
+A Teacher must be able to define and manage effective-dated billing rules for only their own Teacher-student relationships. The module prepares reliable rate history for later invoice generation; it must not generate invoices, calculate invoice totals, or record payments.
+
+Do not implement invoices, invoice items, invoice sequences, payments, email, reports, Student self-service, or any Phase 10-or-later functionality.
+
+## Existing database design
+
+Use the existing table:
+
+```text
+tmn_student_billing
+```
+
+Relevant fields:
+
+```text
+id
+teacher_student_id
+billing_mode
+rate
+effective_from
+effective_to
+status
+created_at
+updated_at
+```
+
+Supported values:
+
+```text
+billing_mode:
+FIXED_MONTHLY
+HOURLY
+
+status:
+ACTIVE
+INACTIVE
+```
+
+All current and future database table names must use the `tmn_` prefix. Do not create a new table unless a genuine schema limitation is found. If a database change is necessary, add a clearly documented migration or schema update that preserves existing records.
+
+## Billing rules
+
+Use these rules consistently in the service and interface:
+
+- A new rule may be created only for an active Teacher-student assignment owned by the logged-in Teacher.
+- `billing_mode` must be exactly `FIXED_MONTHLY` or `HOURLY`.
+- `rate` must be a valid non-negative decimal amount with no more than two decimal places and must fit `DECIMAL(12,2)`. Do not use PHP floats for money comparisons or storage decisions.
+- `effective_from` is required and must be a valid date.
+- `effective_to` is optional, but when supplied it must be valid and not before `effective_from`.
+- Both effective dates must fall within the assignment dates. An open-ended assignment permits a blank `effective_to`.
+- For one assignment and one billing mode, active effective-date ranges must never overlap. Treat a blank `effective_to` as open-ended.
+- The overlap rule is: two ranges overlap when each range starts on or before the other range ends, with a blank end treated as infinity.
+- `status` must not come from an untrusted browser value. New rules begin as `ACTIVE`.
+- Do not physically delete billing rules. Ending/deactivating a rule must retain the row as billing history.
+- Editing a rate must not update existing invoices or invoice items. This phase does not modify invoice tables.
+
+Because MySQL has no ordinary exclusion constraint for date ranges, enforce active-range overlap prevention in the service within a transaction. Lock the relevant active billing rows for that assignment and mode while checking and writing, so concurrent requests cannot create conflicting ranges.
+
+## Ownership and access rules
+
+Every Teacher Billing page must enforce:
+
+```php
+tuman_require_role('TEACHER')
+```
+
+Every billing read or write must prove ownership through the linked assignment, conceptually:
+
+```sql
+WHERE billing.id = :billing_id
+  AND teacher_students.teacher_user_id = :current_teacher_id
+```
+
+Do not trust billing IDs, assignment IDs, hidden form fields, or URL parameters as authorization proof. A request for another Teacher's billing rule must receive the same safe result as an invalid or missing record.
+
+## Required Teacher functionality
+
+Create a simple billing area within `teacher/`, for example:
+
+```text
+teacher/
+├── billing.php
+├── billing-create.php
+├── billing-edit.php
+└── billing-status.php
+```
+
+The names may differ if the existing project structure supports a clearer design.
+
+### Billing rules list
+
+Provide a page that lets the logged-in Teacher:
+
+- Select one of their own students, with an option to view all their students.
+- See student name, billing mode, rate, status, effective-from date, effective-to date, and actions.
+- Add a billing rule.
+- Edit or end/deactivate one of their own rules.
+
+Make the rate clear in the interface, for example as “₹300.00 per hour” for `HOURLY` and “₹2,000.00 per month” for `FIXED_MONTHLY`. Do not introduce a configurable currency feature in this phase.
+
+### Create billing rule
+
+Create a CSRF-protected POST form.
+
+Required inputs:
+
+```text
+Student
+Billing mode
+Rate
+Effective from date
+```
+
+Optional input:
+
+```text
+Effective to date
+```
+
+Validate ownership, active-assignment status, money format, date bounds, and non-overlap on the server. Show a friendly validation message when a conflicting active rule exists.
+
+### Edit billing rule
+
+Allow a Teacher to edit one of their own billing rules using POST and CSRF protection. Permitted fields are:
+
+- Billing mode
+- Rate
+- Effective dates
+
+Revalidate ownership, assignment date bounds, and active-range overlap on every update. Do not allow editing another Teacher's billing rule. Do not provide any invoice or payment controls.
+
+### End/deactivate billing rule
+
+Provide a confirmation page/form to end or deactivate a rule.
+
+Rules:
+
+- Set status to `INACTIVE`; do not delete the row.
+- Optionally allow the Teacher to set an effective-to date when ending the rule; if supplied, validate it against the rule start date and assignment bounds.
+- Preserve the rule as historical data and state this clearly on the confirmation page.
+- Do not allow a Teacher to deactivate another Teacher's rule.
+- Reactivation is optional. If implemented, it must be CSRF-protected and must repeat the active-range overlap check inside a transaction.
+
+## Service design
+
+Create a focused reusable service, for example:
+
+```text
+services/billing.php
+```
+
+It should centralize:
+
+- Teacher-owned billing and assignment lookup
+- Billing-rule listing/query logic
+- Billing-mode, decimal-money, date, and assignment-bound validation
+- Effective-date overlap detection
+- Transactional create, edit, and deactivation operations
+- Ownership enforcement
+
+Do not duplicate billing queries, overlap checks, or validation across pages. Use PDO prepared statements for every user-controlled value.
+
+## Activity log
+
+Use the existing activity-log helper for safe events such as:
+
+```text
+BILLING_RULE_CREATED
+BILLING_RULE_UPDATED
+BILLING_RULE_STATUS_CHANGED
+```
+
+Log only minimal useful metadata, such as billing mode and status. Do not log passwords, hashes, database credentials, or unnecessary personal information.
+
+## Security and quality
+
+- Every state-changing form uses POST and CSRF validation.
+- Escape all rendered values with `htmlspecialchars()`.
+- Use prepared statements for dynamic values.
+- Never expose SQL errors, paths, database credentials, or stack traces in the browser.
+- Validate all identifiers and values server-side.
+- Keep money as validated decimal strings or integer minor units in PHP; do not use floating-point arithmetic for overlap or rate handling.
+- Keep the module understandable and simple; do not add a framework or ORM.
+- Do not implement functionality belonging to Phase 10 or later.
+
+## Documentation
+
+Update:
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/database.md` only if schema changes occur
+- `docs/development-log.md`
+- `docs/testing.md`
+- `docs/user-manual.md`
+
+Document the two billing modes, effective-date rules, non-overlap guarantee, Teacher ownership enforcement, inactive-history behaviour, safe activity-log events, and tests performed.
+
+## Testing
+
+Test at minimum:
+
+```text
+Unauthenticated user -> Billing page -> redirected
+Administrator -> Billing page -> denied
+Student -> Billing page -> denied
+Teacher -> Billing page -> allowed
+```
+
+Ownership tests:
+
+```text
+Teacher A -> own student billing rules -> allowed
+Teacher A -> Teacher B assignment/billing rule -> denied
+Teacher A -> edit or deactivate Teacher B billing rule -> denied
+```
+
+Validation and integrity tests:
+
+```text
+Valid hourly rule -> created
+Valid fixed-monthly rule -> created
+Missing/invalid billing mode -> rejected
+Invalid, negative, or over-precision rate -> rejected
+Invalid effective-from date -> rejected
+End date before start date -> rejected
+Rule date outside assignment dates -> rejected
+Overlapping active rule with same assignment and mode -> rejected
+Non-overlapping active rule with same assignment and mode -> allowed
+Overlapping rule with different mode -> allowed
+Missing CSRF token -> rejected
+Invalid CSRF token -> rejected
+```
+
+History and transaction tests:
+
+```text
+Deactivate billing rule -> status becomes INACTIVE
+Billing rule row remains available in history
+Teacher cannot deactivate another Teacher's rule
+Create/update failure rolls back without leaving a partial billing or activity-log record
+```
+
+Clearly distinguish:
+
+```text
+PASS
+BLOCKED
+NOT APPLICABLE
+```
+
+## Final report format
+
+```text
+PHASE 09 — BILLING RULES
+
+Status:
+- Completed / Completed with issues / Blocked
+
+Implemented:
+- ...
+
+Files created:
+- ...
+
+Files modified:
+- ...
+
+Database changes:
+- ...
+
+Tests performed:
+- PASS:
+- BLOCKED:
+
+Security decisions:
+- ...
+
+Known issues:
+- ...
+
+Next recommended phase:
+- ...
+```
+
+Do not proceed automatically to Phase 10.

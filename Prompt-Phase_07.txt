@@ -1,0 +1,345 @@
+# TUMAN — Phase 07
+
+## Responsibilities Module
+
+Continue development of **Tuman — Tuition Management System**.
+
+Phase 06 is complete. Implement **only Phase 07 — Responsibilities**.
+
+## Inspect first
+
+Before making changes:
+
+1. Inspect the complete repository.
+2. Read `README.md` and all files in `docs/`.
+3. Review:
+   - `database/schema.sql`
+   - `services/teacher_students.php`
+   - `services/activity_log.php`
+   - `includes/auth.php`
+   - `includes/csrf.php`
+   - Current `teacher/` pages
+4. Preserve the existing PDO, CSRF, role guard, transaction, ownership-query, and `tmn_` table-prefix conventions.
+
+Do not rewrite working Administrator, Teacher student-management, authentication, public-site, or database functionality unnecessarily.
+
+## Objective
+
+Build the Teacher Responsibilities module.
+
+A Teacher must be able to define and manage structured responsibilities for each of their own active Teacher-student relationships.
+
+Responsibilities must support both:
+
+```text
+TEACHER
+STUDENT
+```
+
+Examples:
+
+```text
+Teacher:
+- Conduct classes regularly
+- Provide assignments
+- Evaluate progress
+
+Student:
+- Attend classes regularly
+- Complete assigned work
+- Inform the Teacher about absence
+```
+
+Do not implement attendance, billing, invoices, payments, email, reports, or Student self-service screens in this phase.
+
+## Existing database design
+
+Use the existing table:
+
+```text
+tmn_responsibilities
+```
+
+Its relevant fields include:
+
+```text
+id
+teacher_student_id
+responsibility_for
+title
+details
+status
+effective_from
+effective_to
+created_at
+updated_at
+```
+
+Existing supported values are:
+
+```text
+responsibility_for:
+- TEACHER
+- STUDENT
+
+status:
+- ACTIVE
+- INACTIVE
+```
+
+All table names must continue to use the `tmn_` prefix.
+
+Do not create a new table unless a genuine schema limitation is found. If a database change is necessary, create a clearly documented migration or schema update and preserve existing records.
+
+## Ownership and access rules
+
+Every Teacher Responsibilities page must enforce:
+
+```php
+tuman_require_role('TEACHER')
+```
+
+A Teacher may access responsibilities only when the associated `tmn_teacher_students` row belongs to the currently authenticated Teacher.
+
+Every read or write must confirm ownership server-side, for example through a query conceptually equivalent to:
+
+```sql
+WHERE responsibility.id = :responsibility_id
+  AND teacher_students.teacher_user_id = :current_teacher_id
+```
+
+Do not trust assignment IDs, responsibility IDs, hidden form fields, or URL parameters as authorization proof.
+
+A Teacher attempting to access another Teacher’s responsibility must receive the same safe result as an invalid or missing record. Do not reveal whether that other record exists.
+
+## Required Teacher functionality
+
+Create a simple responsibilities area within `teacher/`, for example:
+
+```text
+teacher/
+├── responsibilities.php
+├── responsibility-create.php
+├── responsibility-edit.php
+└── responsibility-status.php
+```
+
+The exact file names may differ if the existing project structure supports a clearer design.
+
+### Responsibilities list
+
+Provide a page that lets the logged-in Teacher:
+
+- Select one of their own students
+- View responsibilities for that Teacher-student relationship
+- See:
+  - Responsibility type: Teacher or Student
+  - Title
+  - Details where available
+  - Status
+  - Effective start date
+  - Effective end date
+- Create a new responsibility
+- Edit or deactivate an existing responsibility
+
+Do not expose students or responsibility records belonging to another Teacher.
+
+### Create responsibility
+
+Create a CSRF-protected form.
+
+Required inputs:
+
+```text
+Student
+Responsibility for: Teacher / Student
+Title
+Effective from date
+```
+
+Optional inputs:
+
+```text
+Details
+Effective to date
+```
+
+Validate server-side:
+
+- The selected Teacher-student relationship belongs to the logged-in Teacher.
+- The relationship is active before a new responsibility is created.
+- Responsibility type is exactly `TEACHER` or `STUDENT`.
+- Title is required and has a sensible maximum length.
+- Dates are valid.
+- `effective_to`, when supplied, must not be before `effective_from`.
+- Status must not come from an untrusted browser value; new responsibilities should begin as `ACTIVE`.
+
+### Edit responsibility
+
+Allow a Teacher to edit permitted fields for one of their own responsibilities:
+
+- Responsibility type
+- Title
+- Details
+- Effective dates
+
+Do not allow editing another Teacher’s responsibility.
+
+Use POST and CSRF protection.
+
+### Deactivate responsibility
+
+Provide a confirmation page/form to deactivate a responsibility.
+
+Rules:
+
+- Use `INACTIVE`; do not delete the row.
+- Preserve responsibility history.
+- Do not let a Teacher deactivate another Teacher’s responsibility.
+- Clearly explain that the historical record remains available.
+
+A reactivation workflow is optional. If implemented, it must use CSRF protection and the same ownership checks.
+
+## Service design
+
+Create a focused reusable service, for example:
+
+```text
+services/responsibilities.php
+```
+
+It should centralize:
+
+- Teacher-owned student/assignment lookup
+- Responsibility list/query logic
+- Responsibility validation
+- Create/edit/deactivate operations
+- Ownership enforcement
+
+Do not duplicate responsibility queries and validation across pages.
+
+Use PDO prepared statements for all user-controlled values.
+
+## Activity log
+
+Use the existing activity-log helper to record safe events such as:
+
+```text
+RESPONSIBILITY_CREATED
+RESPONSIBILITY_UPDATED
+RESPONSIBILITY_STATUS_CHANGED
+```
+
+Do not place unnecessary personal information, passwords, hashes, or long sensitive free-text details in activity-log JSON.
+
+## Security and quality
+
+- Every state-changing form uses POST and CSRF validation.
+- Escape all rendered values with `htmlspecialchars()`.
+- Display safe validation and not-found messages.
+- Never expose SQL errors, file paths, database credentials, or stack traces.
+- Keep the module understandable and simple.
+- Do not add a framework or ORM.
+- Do not create functionality belonging to Phase 08 or later.
+
+## Documentation
+
+Update:
+
+- `README.md`
+- `docs/architecture.md`
+- `docs/database.md` only if schema changes occur
+- `docs/development-log.md`
+- `docs/testing.md`
+- `docs/user-manual.md`
+
+Document:
+
+- The two responsibility types
+- Teacher ownership enforcement
+- Responsibility effective dates and inactive-history behaviour
+- Activity-log events
+- Tests performed
+
+## Testing
+
+Test at minimum:
+
+```text
+Unauthenticated user → Responsibilities page → redirected
+Administrator → Responsibilities page → denied
+Student → Responsibilities page → denied
+Teacher → Responsibilities page → allowed
+```
+
+Ownership tests:
+
+```text
+Teacher A → own student responsibilities → allowed
+Teacher A → Teacher B assignment/responsibility → denied
+Teacher A → modify Teacher B responsibility → denied
+```
+
+Validation tests:
+
+```text
+Valid responsibility → created
+Missing title → rejected
+Invalid responsibility type → rejected
+Invalid start date → rejected
+End date before start date → rejected
+Missing CSRF token → rejected
+Invalid CSRF token → rejected
+```
+
+History tests:
+
+```text
+Deactivate responsibility → status becomes INACTIVE
+Responsibility row remains available in history
+Teacher cannot deactivate another Teacher's responsibility
+```
+
+Clearly distinguish:
+
+```text
+PASS
+BLOCKED
+NOT APPLICABLE
+```
+
+## Final report format
+
+```text
+PHASE 07 — RESPONSIBILITIES
+
+Status:
+- Completed / Completed with issues / Blocked
+
+Implemented:
+- ...
+
+Files created:
+- ...
+
+Files modified:
+- ...
+
+Database changes:
+- ...
+
+Tests performed:
+- PASS:
+- BLOCKED:
+
+Security decisions:
+- ...
+
+Known issues:
+- ...
+
+Next recommended phase:
+- ...
+```
+
+Do not proceed automatically to Phase 08.

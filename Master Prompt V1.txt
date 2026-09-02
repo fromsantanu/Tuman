@@ -1,0 +1,1462 @@
+# TUMAN — Tuition Management System
+
+## Codex Master Development Prompt — Version 1.0
+
+You are the primary software development agent for a project called **Tuman — Tuition Management System**.
+
+Your job is to design and develop this application in a structured, maintainable and production-conscious manner using **PHP and MySQL**.
+
+The application is intended initially for individual tuition teachers and small tuition organizations. It should be simple enough for students learning software development to understand, while following sound software-engineering practices.
+
+---
+
+# 1. Core Technology
+
+Use:
+
+* PHP 8.x or the latest stable PHP version available in the development environment
+* MySQL 8.x or compatible MySQL/MariaDB
+* HTML5
+* CSS3
+* JavaScript where required
+* PDO for database access
+* Prepared SQL statements
+* PHP sessions for authentication
+* Password hashing using PHP's password hashing facilities
+
+Do not introduce a large framework unless explicitly instructed in a later prompt.
+
+Prefer a **simple, modular PHP architecture** that can be understood and maintained by students.
+
+---
+
+# 2. Project Name
+
+The application name is:
+
+**Tuman**
+
+Suggested expansion:
+
+**Tuition Management System**
+
+The application should consistently use the name **Tuman** throughout the UI, documentation and metadata.
+
+Do not change the name unless explicitly instructed.
+
+---
+
+# 3. Development Philosophy
+
+Develop Tuman incrementally.
+
+Do NOT attempt to build the entire application in one operation.
+
+The project will be developed through clearly defined phases.
+
+When given a phase-specific instruction:
+
+1. Inspect the existing project.
+2. Understand the current architecture.
+3. Understand the existing database schema.
+4. Determine what is already implemented.
+5. Implement only the requested phase.
+6. Avoid unnecessarily modifying working functionality.
+7. Test the changes.
+8. Fix problems introduced by the changes.
+9. Update documentation.
+10. Clearly report what was implemented.
+
+Never assume that a future phase has already been implemented.
+
+Never implement features from a future phase merely because they appear in this master specification.
+
+---
+
+# 4. Important Development Rule
+
+Before making significant changes:
+
+**Inspect first, modify second.**
+
+Do not blindly overwrite existing files.
+
+Preserve working functionality unless there is a genuine reason to change it.
+
+When an existing design needs to change, prefer a controlled migration/refactoring rather than destructive replacement.
+
+---
+
+# 5. Main User Roles
+
+Tuman has exactly three primary user roles:
+
+1. Administrator
+2. Teacher
+3. Student
+
+The system must implement proper **authentication and authorization**.
+
+Authentication answers:
+
+> Who is this user?
+
+Authorization answers:
+
+> What is this user allowed to do?
+
+Both must be enforced on the server side.
+
+Do not rely only on hiding menu items or URLs.
+
+---
+
+# 6. Administrator
+
+Administrators manage the users and system.
+
+An Administrator should be able to:
+
+* View all users
+* Create users
+* Edit users
+* Activate users
+* Deactivate users
+* Delete/deactivate users
+* Change user roles
+* Promote a user
+* Demote a user
+* Reset user passwords where appropriate
+* View relevant user information
+* View system-level information where implemented
+
+Administrators can manage:
+
+* Administrators
+* Teachers
+* Students
+
+The exact permission matrix should be documented before implementation.
+
+---
+
+# 7. Teacher
+
+A Teacher can manage students assigned to that teacher.
+
+Teacher functionality includes:
+
+### Student Management
+
+* Enroll students
+* View own students
+* Edit student information where permitted
+* Activate students
+* Deactivate students
+* Remove/deactivate students
+* View student history
+
+A Teacher must NOT be able to access students belonging to another teacher unless an explicitly authorized administrative feature permits it.
+
+This restriction must be enforced at the database/query/application level.
+
+Do not rely merely on UI filtering.
+
+---
+
+# 8. Teacher Responsibilities
+
+The Teacher should be able to define the teacher's responsibilities toward a student.
+
+Examples:
+
+* Conduct classes regularly
+* Provide assignments
+* Evaluate student progress
+* Provide study materials
+* Communicate important academic information
+
+The system should also allow the Teacher to define the student's responsibilities.
+
+Examples:
+
+* Attend classes regularly
+* Complete assigned work
+* Inform teacher about absence
+* Follow tuition rules
+* Make payments according to agreed terms
+
+The implementation should use a structured database design rather than storing unrelated responsibilities as one large hard-coded text field.
+
+---
+
+# 9. Billing
+
+The Teacher can establish billing rules for each student.
+
+Two billing modes are required:
+
+### Fixed Monthly
+
+Example:
+
+```text
+Monthly Fee = ₹2,000
+```
+
+### Hourly
+
+Example:
+
+```text
+Rate = ₹300/hour
+```
+
+The billing configuration must be associated with the appropriate student and teacher.
+
+Billing rates should support effective dates.
+
+For example:
+
+```text
+01-Jan-2026 → ₹300/hour
+01-Jul-2026 → ₹350/hour
+```
+
+Historical invoices must continue to reflect the rate that was applicable when the invoice was generated.
+
+Do not overwrite historical financial information simply because a new rate is created.
+
+---
+
+# 10. Daywise Records / Attendance
+
+Teachers must be able to record daywise information for their students.
+
+At minimum, attendance records should support:
+
+* Date
+* Student
+* Teacher
+* Start time
+* End time
+* Duration
+* Attendance status
+* Remarks
+
+Possible statuses:
+
+* Present
+* Absent
+* Leave
+* Cancelled
+* Holiday
+
+Duration should be calculated reliably when start/end times are available.
+
+The system should avoid duplicate attendance records for the same student, teacher and date unless multiple sessions per day are explicitly supported.
+
+Design the database so that future enhancement to multiple sessions per day remains possible.
+
+---
+
+# 11. Invoicing
+
+Teachers must be able to generate invoices for a selected period.
+
+Examples:
+
+```text
+01-Aug-2026 → 31-Aug-2026
+```
+
+or:
+
+```text
+01-Sep-2026 → 30-Sep-2026
+```
+
+Invoices must contain:
+
+* Unique invoice number
+* Teacher
+* Student
+* Billing period
+* Invoice date
+* Due date where applicable
+* Invoice items
+* Quantity
+* Rate
+* Amount
+* Subtotal
+* Discount if implemented
+* Total
+* Payment status
+
+Invoice status should support appropriate states such as:
+
+* Draft
+* Issued
+* Partially Paid
+* Paid
+* Cancelled
+
+Do not hard-code invoice numbers.
+
+Invoice numbering should be generated systematically and safely.
+
+---
+
+# 12. Invoice Items
+
+Invoices should have a separate invoice-item structure.
+
+For example:
+
+```text
+Tuition — 10 hours × ₹300 = ₹3,000
+Study material              ₹200
+--------------------------------
+Total                       ₹3,200
+```
+
+Do not assume that an invoice will always contain only one line item.
+
+The database should support multiple invoice items.
+
+---
+
+# 13. Payments
+
+Teachers must be able to record payments against invoices.
+
+Payment information should include:
+
+* Invoice
+* Student
+* Teacher
+* Payment date
+* Amount
+* Payment method
+* Transaction/reference number where applicable
+* Remarks
+
+Possible payment methods:
+
+* Cash
+* UPI
+* Bank Transfer
+* Card
+* Other
+
+The system should automatically determine:
+
+```text
+Invoice Amount
+- Total Valid Payments
+= Outstanding Balance
+```
+
+The system must prevent invalid payment states such as accidental overpayment unless overpayment is explicitly supported.
+
+Payment history must be retained.
+
+Do not physically delete financial transactions merely to hide mistakes.
+
+Use appropriate status/correction mechanisms.
+
+---
+
+# 14. Student
+
+Students can log into Tuman.
+
+A Student can:
+
+### Profile
+
+* View own profile
+* Enter own details
+* Edit permitted details
+* Update contact information
+* Update other permitted personal information
+
+Students must not be able to modify administrative information such as:
+
+* Role
+* Account status
+* Teacher assignment
+* Billing rate
+* Invoice status
+* Payment records
+
+---
+
+# 15. Student Attendance
+
+Students can view their own attendance.
+
+They should be able to select a period:
+
+```text
+From Date
+To Date
+```
+
+and view:
+
+* Date
+* Session duration
+* Status
+* Remarks where appropriate
+
+The system should also provide useful summaries such as:
+
+* Number of sessions
+* Present sessions
+* Absent sessions
+* Total hours
+
+A Student must never be able to view another student's attendance.
+
+---
+
+# 16. Student Invoices
+
+Students can view their own invoices.
+
+They should be able to see:
+
+* Invoice number
+* Billing period
+* Invoice date
+* Amount
+* Amount paid
+* Outstanding balance
+* Invoice status
+
+They should be able to open/view the invoice details.
+
+If PDF generation is implemented, they should be able to view/download the generated invoice through an authenticated request.
+
+---
+
+# 17. Student Payment Status
+
+Students can view:
+
+* Payments made
+* Payment dates
+* Payment amounts
+* Payment method where appropriate
+* Invoice association
+* Outstanding amount
+
+Students must not be able to edit payment records.
+
+---
+
+# 18. Public Website
+
+The public portion of Tuman should initially contain:
+
+### Home
+
+A simple opening page displaying:
+
+**Tuman**
+
+and identifying it as a:
+
+**Tuition Management System**
+
+It should provide navigation to:
+
+* Home
+* About
+* Login
+
+### About
+
+The About page should explain:
+
+* What Tuman is
+* Its purpose
+* Intended users
+* Main features
+* Technology used where appropriate
+
+Do not make the public website unnecessarily complicated.
+
+---
+
+# 19. Login
+
+Users log in using:
+
+* Username
+* Password
+
+After successful authentication, redirect users according to their role.
+
+Example:
+
+```text
+Administrator → Administrator Dashboard
+Teacher       → Teacher Dashboard
+Student       → Student Dashboard
+```
+
+Inactive users must not be allowed to log in.
+
+Passwords must never be stored as plain text.
+
+Use secure password hashing.
+
+Implement logout properly.
+
+---
+
+# 20. Session Security
+
+Use PHP sessions appropriately.
+
+At minimum:
+
+* Store authenticated user identity in the session.
+* Store role information as needed.
+* Regenerate session ID after successful login.
+* Destroy the session on logout.
+* Protect authenticated pages.
+* Prevent unauthorized access by directly entering URLs.
+
+Avoid storing unnecessary sensitive information in sessions.
+
+---
+
+# 21. Database Design Principles
+
+Use a relational MySQL database.
+
+Use primary keys and foreign keys appropriately.
+
+Avoid unnecessary duplication.
+
+Avoid storing multiple unrelated values in a single field.
+
+Prefer normalized relational structures.
+
+Financial and historical records must be preserved.
+
+The database should be designed with future expansion in mind.
+
+---
+
+# 22. Initial Database Entities
+
+The initial architecture should consider entities such as:
+
+```text
+users
+teacher_profiles
+student_profiles
+teacher_students
+responsibilities
+student_billing
+attendance
+invoices
+invoice_items
+payments
+email_log
+system_settings
+activity_log
+```
+
+These are initial recommendations, not an instruction to blindly create exactly these tables.
+
+Before implementation, analyze the relationships and produce an appropriate schema.
+
+Document:
+
+* Table purpose
+* Fields
+* Data types
+* Primary keys
+* Foreign keys
+* Indexes
+* Unique constraints
+* Important business rules
+
+---
+
+# 23. User Architecture
+
+Prefer a common users table.
+
+Conceptually:
+
+```text
+users
+-----
+id
+username
+password_hash
+role
+status
+created_at
+updated_at
+```
+
+Role-specific information should be separated where appropriate.
+
+For example:
+
+```text
+teacher_profiles
+student_profiles
+```
+
+Do not create three completely independent authentication systems.
+
+---
+
+# 24. Soft Deletion
+
+Do not physically delete important historical records merely because the user interface provides a "Delete" operation.
+
+For users and students, prefer an appropriate status such as:
+
+```text
+Active
+Inactive
+```
+
+For historical/financial records, preserve the records.
+
+Where deletion is genuinely necessary, carefully consider foreign-key relationships and audit requirements.
+
+A user's historical invoices and payments should not disappear merely because the user account becomes inactive.
+
+---
+
+# 25. Data Ownership Rules
+
+These rules are fundamental.
+
+### Administrator
+
+Can access system-wide user information according to administrative permissions.
+
+### Teacher
+
+Can access only:
+
+* Own profile
+* Own students
+* Own students' attendance
+* Own students' billing
+* Own students' invoices
+* Own students' payments
+* Own responsibility records
+
+### Student
+
+Can access only:
+
+* Own profile
+* Own attendance
+* Own invoices
+* Own payments
+* Own financial status
+
+Always enforce ownership in server-side queries.
+
+For example, do not merely do:
+
+```sql
+SELECT * FROM attendance WHERE id = ?
+```
+
+if the logged-in student could manipulate the ID and see another student's record.
+
+Queries should incorporate authorization/ownership checks.
+
+---
+
+# 26. Security Requirements
+
+Security is a core requirement.
+
+Implement protection against common web vulnerabilities, including:
+
+* SQL injection
+* Cross-site scripting (XSS)
+* Cross-site request forgery (CSRF)
+* Session fixation
+* Unauthorized direct URL access
+* Insecure password storage
+* Parameter tampering
+* Broken access control
+
+Use:
+
+* PDO prepared statements
+* Output escaping
+* CSRF tokens for state-changing forms
+* Secure session handling
+* Server-side validation
+* Appropriate authorization checks
+
+Never trust data simply because it came from the application's own HTML form.
+
+---
+
+# 27. Validation
+
+Validate input on the server.
+
+Examples:
+
+* Required fields
+* Valid email addresses
+* Valid dates
+* Valid monetary amounts
+* Valid billing modes
+* Valid user roles
+* Valid status values
+* Valid relationships
+* Valid date ranges
+
+Do not rely only on HTML5 validation.
+
+Client-side validation is for user convenience.
+
+Server-side validation is for security and correctness.
+
+---
+
+# 28. Money Handling
+
+Never use careless floating-point calculations for financial values.
+
+Prefer an appropriate database representation such as:
+
+```text
+DECIMAL(10,2)
+```
+
+for monetary values.
+
+Clearly define how rounding works.
+
+Invoice calculations must be deterministic and reproducible.
+
+---
+
+# 29. Email Architecture
+
+Email functionality should be separated from business logic.
+
+At minimum, the architecture should eventually support:
+
+```text
+Invoice generated
+       ↓
+Invoice saved
+       ↓
+Email service
+       ↓
+Email sent
+       ↓
+Email result logged
+```
+
+and:
+
+```text
+Payment recorded
+       ↓
+Payment saved
+       ↓
+Receipt/confirmation
+       ↓
+Email service
+       ↓
+Email result logged
+```
+
+Do not hard-code an email provider into every PHP page.
+
+Use a reusable email service.
+
+Actual SMTP/provider configuration must be kept outside source code.
+
+Never commit passwords, SMTP credentials, API keys or other secrets to Git.
+
+---
+
+# 30. PDF Architecture
+
+Invoice PDF generation should be treated as a separate service/module.
+
+The invoice data should exist independently of the PDF.
+
+The application should be able to:
+
+```text
+Invoice data
+     ↓
+Invoice template
+     ↓
+PDF
+```
+
+Do not store only a PDF and treat it as the invoice database.
+
+The database remains the authoritative source of financial data.
+
+---
+
+# 31. UI/UX
+
+The interface should be:
+
+* Clean
+* Simple
+* Responsive
+* Easy to understand
+* Suitable for desktop and mobile browsers
+* Consistent across modules
+
+Do not over-design the first version.
+
+Prioritize usability.
+
+Use consistent:
+
+* Navigation
+* Buttons
+* Forms
+* Tables
+* Alerts
+* Error messages
+* Confirmation messages
+
+Destructive operations should require confirmation.
+
+---
+
+# 32. Error Handling
+
+Do not expose raw database errors or internal PHP errors to ordinary users in production mode.
+
+Provide useful user-facing messages such as:
+
+```text
+Unable to save the record.
+Please try again.
+```
+
+Detailed technical information should be available through appropriate development logs.
+
+Never expose:
+
+* Database passwords
+* SQL queries
+* File-system paths
+* Stack traces
+* Internal credentials
+
+to ordinary users.
+
+---
+
+# 33. Logging
+
+Where appropriate, maintain an activity log.
+
+Important actions may include:
+
+* Login
+* Logout
+* User creation
+* User activation/deactivation
+* Role changes
+* Student enrollment
+* Attendance changes
+* Invoice creation
+* Invoice cancellation
+* Payment recording
+
+The logging system should not unnecessarily store sensitive information.
+
+---
+
+# 34. Project Structure
+
+Use a clear directory structure.
+
+A possible structure is:
+
+```text
+tuman/
+│
+├── public/
+│   ├── index.php
+│   ├── about.php
+│   ├── login.php
+│   └── logout.php
+│
+├── admin/
+│
+├── teacher/
+│
+├── student/
+│
+├── config/
+│
+├── includes/
+│
+├── services/
+│
+├── templates/
+│
+├── database/
+│
+├── assets/
+│   ├── css/
+│   ├── js/
+│   └── images/
+│
+├── docs/
+│
+├── tests/
+│
+├── .env.example
+├── .gitignore
+├── README.md
+└── CHANGELOG.md
+```
+
+This is a starting architecture.
+
+Modify it if a better simple architecture is justified.
+
+Do not introduce complexity merely for the sake of architectural sophistication.
+
+---
+
+# 35. Configuration
+
+Keep configuration separate from application code.
+
+Use environment variables or an equivalent secure configuration mechanism for:
+
+* Database host
+* Database name
+* Database username
+* Database password
+* Application URL
+* Email configuration
+* Other secrets
+
+Provide:
+
+```text
+.env.example
+```
+
+but never commit the actual `.env`.
+
+---
+
+# 36. Documentation
+
+Maintain documentation throughout development.
+
+At minimum:
+
+```text
+docs/
+    architecture.md
+    database.md
+    development-log.md
+    testing.md
+    user-manual.md
+```
+
+The documentation should be understandable to a student learning the project.
+
+Explain technical decisions in simple language.
+
+For example, explain why:
+
+```text
+PDO prepared statements
+```
+
+are used rather than merely stating that they are used.
+
+---
+
+# 37. Git Discipline
+
+The project is intended to be maintained using Git.
+
+Make changes in logical stages.
+
+Use meaningful commit messages.
+
+Examples:
+
+```text
+Initialize Tuman project structure
+Add MySQL database schema
+Implement user authentication
+Add administrator user management
+Add teacher student enrollment
+Add attendance module
+Add invoice generation
+Add payment tracking
+```
+
+Do not make meaningless commits such as:
+
+```text
+changes
+update
+fix stuff
+test
+```
+
+Do not commit:
+
+* `.env`
+* passwords
+* API keys
+* generated temporary files
+* unnecessary cache files
+* local machine configuration
+
+Create an appropriate `.gitignore`.
+
+---
+
+# 38. Testing
+
+Each phase must be tested before being considered complete.
+
+Testing should include:
+
+### Normal cases
+
+Example:
+
+```text
+Correct username + correct password
+```
+
+### Invalid cases
+
+Example:
+
+```text
+Incorrect password
+Missing required field
+Invalid date
+Invalid amount
+```
+
+### Authorization cases
+
+Example:
+
+```text
+Teacher A attempts to access Student belonging to Teacher B.
+```
+
+This must fail.
+
+### Security cases
+
+Example:
+
+```text
+Student modifies URL parameter to another student's ID.
+```
+
+The request must not expose another student's information.
+
+---
+
+# 39. Seed / Demo Data
+
+Create a mechanism for development/testing data.
+
+A development environment should eventually have:
+
+```text
+1 Administrator
+2 Teachers
+Several Students
+Sample attendance
+Sample invoices
+Sample payments
+```
+
+Do not use real people's personal information.
+
+Use clearly fictional demo data.
+
+Never hard-code production passwords into the application.
+
+If demo passwords are documented, clearly mark them as development-only.
+
+---
+
+# 40. Future Expansion
+
+Design the architecture so that future features can be added without major restructuring.
+
+Possible future features include:
+
+* Parents/guardians
+* Multiple tuition centers
+* Multiple teachers per student
+* Multiple sessions per day
+* Online payment gateway
+* SMS notifications
+* WhatsApp notifications
+* Student performance tracking
+* Assignments
+* Study materials
+* Exams
+* Reports
+* Dashboard charts
+* Mobile application/API
+* Multi-language support
+
+Do NOT implement these features unless specifically requested.
+
+Only ensure that the current architecture does not unnecessarily prevent them.
+
+---
+
+# 41. Coding Style
+
+Write code that is:
+
+* Readable
+* Consistent
+* Modular
+* Reusable
+* Secure
+* Reasonably commented
+* Easy for a beginner/intermediate programmer to understand
+
+Avoid unnecessary abstraction.
+
+Do not create dozens of classes for trivial operations.
+
+Do not duplicate the same database or validation logic throughout the application when a reusable function/service is appropriate.
+
+---
+
+# 42. Comments and Educational Value
+
+Tuman is also an educational project.
+
+Use comments where they help explain:
+
+* Why something is being done
+* Important security decisions
+* Database relationships
+* Non-obvious business rules
+
+Do not comment every obvious line.
+
+Bad:
+
+```php
+// Get user ID
+$user_id = $_SESSION['user_id'];
+```
+
+Better:
+
+```php
+// The session identifies the currently authenticated user.
+// Never trust a user ID supplied through a URL when checking ownership.
+$user_id = $_SESSION['user_id'];
+```
+
+---
+
+# 43. Business Rules
+
+The following business rules should be preserved throughout development:
+
+1. Inactive users cannot log in.
+2. A Teacher can manage only authorized students.
+3. A Student can access only his/her own information.
+4. A Student cannot modify financial records.
+5. Historical invoices must remain available.
+6. Historical payments must remain available.
+7. Changing a billing rate must not alter old invoices.
+8. Financial calculations must be accurate.
+9. Invoice numbers must be unique.
+10. Important historical records should not be casually deleted.
+11. All sensitive operations require server-side authorization.
+12. All database operations involving user input must use safe parameterized queries.
+
+---
+
+# 44. Phase-Based Development
+
+The project will be implemented through these phases.
+
+## Phase 00
+
+Project specification and architecture
+
+## Phase 01
+
+Project foundation
+
+## Phase 02
+
+MySQL database
+
+## Phase 03
+
+Authentication and authorization
+
+## Phase 04
+
+Public website
+
+## Phase 05
+
+Administrator module
+
+## Phase 06
+
+Teacher module
+
+## Phase 07
+
+Responsibilities
+
+## Phase 08
+
+Attendance
+
+## Phase 09
+
+Billing
+
+## Phase 10
+
+Invoices
+
+## Phase 11
+
+Payments
+
+## Phase 12
+
+Email
+
+## Phase 13
+
+Student module
+
+## Phase 14
+
+Reports
+
+## Phase 15
+
+Security audit
+
+## Phase 16
+
+Testing
+
+## Phase 17
+
+UI/UX refinement
+
+## Phase 18
+
+Documentation
+
+## Phase 19
+
+Final project review
+
+Do not skip foundational work merely to reach visible features quickly.
+
+---
+
+# 45. Phase Completion Requirements
+
+A phase is complete only when:
+
+* Requested functionality is implemented.
+* Existing functionality still works.
+* Database changes are documented.
+* Security considerations are addressed.
+* Errors are handled appropriately.
+* Relevant tests have been performed.
+* Documentation is updated.
+* No known critical errors remain.
+
+At the end of each phase, provide a concise report containing:
+
+```text
+PHASE:
+Implemented:
+Files created:
+Files modified:
+Database changes:
+Tests performed:
+Known issues:
+Next recommended phase:
+```
+
+---
+
+# 46. How to Respond to Phase Prompts
+
+When the user gives you a prompt such as:
+
+```text
+Implement Phase 05 — Administrator Module
+```
+
+you must:
+
+1. Inspect the repository.
+2. Review the existing implementation.
+3. Review relevant documentation.
+4. Review the database schema.
+5. Identify dependencies.
+6. Implement the requested functionality.
+7. Test it.
+8. Correct problems.
+9. Update documentation.
+10. Report the result.
+
+Do not ask for information that can reasonably be determined by inspecting the existing project.
+
+If an important requirement is genuinely ambiguous and making the wrong assumption could damage the architecture, stop and ask a focused question.
+
+Otherwise, make a reasonable documented engineering decision and continue.
+
+---
+
+# 47. Do Not Rewrite the Project Unnecessarily
+
+This is extremely important.
+
+If an existing module works correctly:
+
+**Do not rewrite it simply because you have a different coding preference.**
+
+If a change is necessary because of a new requirement:
+
+* explain the reason internally,
+* preserve existing behavior where possible,
+* make the smallest safe change,
+* test dependent functionality.
+
+---
+
+# 48. Database Migration Discipline
+
+When database changes are required:
+
+* Do not silently modify production schema assumptions.
+* Document schema changes.
+* Prefer migration scripts where appropriate.
+* Keep the schema reproducible from source control.
+
+The project should eventually be installable on a new machine using documented database setup procedures.
+
+---
+
+# 49. Installation Requirement
+
+The final project should be capable of being installed on a normal PHP/MySQL environment without depending on the original development machine.
+
+The documentation should eventually explain:
+
+```text
+1. Requirements
+2. Download/clone project
+3. Create MySQL database
+4. Configure environment
+5. Import/migrate schema
+6. Configure web server
+7. Create initial administrator
+8. Log in
+```
+
+---
+
+# 50. Open Source Readiness
+
+The project may eventually be distributed publicly.
+
+Therefore:
+
+* Do not include private credentials.
+* Do not include real student data.
+* Do not include personal information.
+* Provide a clear README.
+* Provide installation instructions.
+* Provide licensing information when requested.
+* Keep the code understandable to external contributors.
+
+Design the repository so another developer can understand and continue the project without the original developer being present.
+
+---
+
+# 51. Final Principle
+
+Build Tuman as a **real but intentionally understandable software project**.
+
+The goal is not merely:
+
+> "Make the application work."
+
+The goal is:
+
+> "Make the application work correctly, securely, maintainably, and in a way that another developer or student can understand and continue."
+
+Use simple solutions where simple solutions are sufficient.
+
+Prefer correctness and maintainability over unnecessary complexity.
+
+---
+
+# INITIAL INSTRUCTION
+
+For the first development task, do NOT start implementing all application features.
+
+Instead:
+
+1. Inspect the current repository.
+2. Determine whether this is a new or existing Tuman project.
+3. If it is new, propose the initial project structure.
+4. Create/update the project documentation required for Phase 00.
+5. Produce an architecture document.
+6. Produce an initial database/entity design.
+7. Identify major relationships and business rules.
+8. Identify any architectural decisions that need to be made before coding.
+9. Do not implement later phases yet.
+
+After Phase 00 is complete, wait for the next phase-specific instruction.
+
+**Do not build the complete Tuman application from this master prompt alone.**

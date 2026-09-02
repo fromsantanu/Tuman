@@ -1,0 +1,965 @@
+# TUMAN — Phase 02
+
+## MySQL Database Design and Implementation
+
+You are continuing development of **Tuman — Tuition Management System**.
+
+The project has already completed **Phase 01 — Project Foundation**.
+
+Your task now is to implement **Phase 02 — MySQL Database**.
+
+Do not start implementing application features that belong to later phases.
+
+---
+
+# 1. FIRST: INSPECT THE EXISTING PROJECT
+
+Before changing anything, inspect the complete current repository.
+
+In particular, inspect:
+
+* The Phase 00 architecture documentation
+* The Phase 01 documentation
+* Existing project structure
+* Existing PHP configuration
+* Existing database configuration
+* Existing `.env.example`
+* Existing database-related code
+* Existing SQL files
+* Existing README
+* Existing development log
+* Existing Git history if useful
+
+Do not assume that the architecture described in the original master prompt was implemented exactly as planned.
+
+The **actual current repository and its documentation are the immediate source of truth**.
+
+If Phase 01 made reasonable architectural decisions that differ from the master prompt, preserve those decisions unless they create a genuine problem.
+
+---
+
+# 2. OBJECTIVE OF THIS PHASE
+
+Establish a clean, reliable and reproducible MySQL database foundation for Tuman.
+
+At the end of this phase:
+
+* The database structure should be defined.
+* Tables and relationships should be implemented.
+* Appropriate indexes should exist.
+* Foreign-key relationships should be established.
+* Appropriate constraints should exist.
+* Database initialization should be reproducible.
+* Development/demo seed data should be possible.
+* PHP should be able to connect to the database.
+* Database documentation should be updated.
+
+Do NOT implement complete Admin, Teacher or Student application screens in this phase.
+
+---
+
+# 3. DATABASE DESIGN BEFORE IMPLEMENTATION
+
+Before creating tables, review the application's requirements and produce a final relational design.
+
+Document the reasoning behind the major entities.
+
+The initial domain should cover, where appropriate:
+
+```text
+users
+teacher_profiles
+student_profiles
+teacher_students
+responsibilities
+student_billing
+attendance
+invoices
+invoice_items
+payments
+email_log
+system_settings
+activity_log
+```
+
+These are candidate entities, not an instruction to blindly create exactly these tables.
+
+Analyze whether each is necessary and whether additional supporting tables are required.
+
+Do not create unnecessary tables merely for the sake of normalization.
+
+---
+
+# 4. USERS
+
+The authentication system should use a common `users` entity for all three roles.
+
+The design should support:
+
+```text
+Administrator
+Teacher
+Student
+```
+
+The user entity should contain appropriate fields for:
+
+* Primary key
+* Username
+* Password hash
+* Role
+* Status
+* Created timestamp
+* Updated timestamp
+
+Consider appropriate fields for:
+
+* Last login
+* Email
+* Account activation/deactivation
+* Other authentication-related information
+
+Do not store plaintext passwords.
+
+Passwords will be generated using PHP's password hashing facilities.
+
+The database should store the resulting password hash.
+
+---
+
+# 5. ROLE DESIGN
+
+Choose a sensible representation for the three roles.
+
+Possible approaches include:
+
+```text
+ADMIN
+TEACHER
+STUDENT
+```
+
+or an equivalent implementation.
+
+Document the choice.
+
+The database must prevent invalid role values where practical.
+
+Do not design a role system that unnecessarily complicates the current three-role application.
+
+---
+
+# 6. USER STATUS
+
+The system needs to distinguish active and inactive accounts.
+
+Use an appropriate database representation.
+
+For example:
+
+```text
+ACTIVE
+INACTIVE
+```
+
+Do not use arbitrary numeric values without documenting their meaning.
+
+The design should allow future extension if required.
+
+---
+
+# 7. TEACHER PROFILE
+
+Create an appropriate teacher profile structure associated with the common user.
+
+The profile should be capable of storing information such as:
+
+* Name
+* Contact information
+* Address
+* Other teacher-specific information
+
+Do not duplicate authentication information in the teacher profile.
+
+The relationship should conceptually be:
+
+```text
+users
+  |
+  +---- teacher_profile
+```
+
+Determine the appropriate cardinality and enforce it where practical.
+
+---
+
+# 8. STUDENT PROFILE
+
+Create an appropriate student profile structure associated with the common user.
+
+It should support information such as:
+
+* Name
+* Contact information
+* Address
+* Guardian information where appropriate
+* Other student-specific information
+
+Do not duplicate authentication credentials in the student profile.
+
+---
+
+# 9. TEACHER-STUDENT RELATIONSHIP
+
+Implement the relationship between teachers and students.
+
+The system must be able to determine:
+
+> Which students belong to which teacher?
+
+At minimum, the relationship should support:
+
+* Teacher
+* Student
+* Start date
+* End date where appropriate
+* Status
+
+Think carefully about whether the relationship should allow historical records.
+
+Do not design it in a way that makes it impossible to determine a student's previous teacher later.
+
+If the application initially assumes one active teacher per student, document that business rule rather than silently enforcing an overly restrictive schema that prevents future expansion.
+
+---
+
+# 10. RESPONSIBILITIES
+
+Create a structure for recording responsibilities associated with tuition relationships.
+
+The system needs to support both:
+
+```text
+Teacher responsibility
+Student responsibility
+```
+
+Responsibilities should be stored as structured records rather than hard-coded fields such as:
+
+```text
+teacher_responsibility_1
+teacher_responsibility_2
+student_responsibility_1
+```
+
+The design should allow multiple responsibility records.
+
+---
+
+# 11. BILLING
+
+Create a structure for student billing configuration.
+
+The system must support:
+
+```text
+FIXED_MONTHLY
+HOURLY
+```
+
+Billing information should support:
+
+* Student
+* Teacher
+* Billing mode
+* Monthly rate
+* Hourly rate
+* Effective date
+* End date where appropriate
+* Status
+
+Think carefully about historical rates.
+
+For example:
+
+```text
+January–June     ₹300/hour
+July onward     ₹350/hour
+```
+
+An old invoice must not change merely because the current rate changes.
+
+Document how this will be achieved.
+
+---
+
+# 12. ATTENDANCE / DAYWISE RECORDS
+
+Create the database structure required for daywise tuition records.
+
+The design should support:
+
+* Student
+* Teacher
+* Date
+* Start time
+* End time
+* Duration
+* Status
+* Remarks
+* Created timestamp
+* Updated timestamp where appropriate
+
+Attendance status should support values such as:
+
+```text
+PRESENT
+ABSENT
+LEAVE
+CANCELLED
+HOLIDAY
+```
+
+Consider whether the design should permit multiple sessions on the same day in the future.
+
+Do not unnecessarily prevent future support for multiple sessions.
+
+---
+
+# 13. INVOICES
+
+Create the invoice structure.
+
+An invoice should support:
+
+* Unique invoice ID
+* Unique invoice number
+* Teacher
+* Student
+* Billing period
+* Invoice date
+* Due date where applicable
+* Subtotal
+* Discount where applicable
+* Total
+* Status
+* Created timestamp
+* Updated timestamp where appropriate
+
+Invoice status should be represented consistently.
+
+Possible statuses:
+
+```text
+DRAFT
+ISSUED
+PARTIALLY_PAID
+PAID
+CANCELLED
+```
+
+Use your judgment if a better representation is appropriate, but document it.
+
+---
+
+# 14. INVOICE ITEMS
+
+Invoices must support multiple line items.
+
+For example:
+
+```text
+Tuition          10 × ₹300
+Study Material    1 × ₹200
+```
+
+Create a separate invoice-item entity.
+
+It should contain appropriate fields for:
+
+* Invoice
+* Description
+* Quantity
+* Rate
+* Amount
+
+Use appropriate decimal types for monetary values.
+
+Do not use floating-point database types for money.
+
+---
+
+# 15. PAYMENTS
+
+Create the payment structure.
+
+Payments should support:
+
+* Invoice
+* Student
+* Teacher
+* Payment date
+* Amount
+* Payment method
+* Transaction/reference number
+* Remarks
+* Created timestamp
+
+Payment methods should support at least:
+
+```text
+CASH
+UPI
+BANK_TRANSFER
+CARD
+OTHER
+```
+
+Determine whether student and teacher IDs need to be stored directly or can be safely derived through the invoice.
+
+Avoid unnecessary data duplication while ensuring useful historical/audit information is retained.
+
+---
+
+# 16. FINANCIAL DATA
+
+Use suitable MySQL data types for financial amounts.
+
+Prefer:
+
+```text
+DECIMAL(10,2)
+```
+
+or a more appropriate precision where justified.
+
+Do not use:
+
+```text
+FLOAT
+DOUBLE
+```
+
+for monetary amounts without a compelling reason.
+
+Document the financial precision and rounding approach.
+
+---
+
+# 17. EMAIL LOG
+
+Create an email log structure if appropriate for the planned invoice/payment email system.
+
+It should eventually allow the application to determine:
+
+* What email was sent
+* To whom
+* Related entity
+* When it was attempted
+* Whether it succeeded
+* Error information where appropriate
+
+Do not store sensitive credentials in this table.
+
+Do not implement the actual email-sending service yet unless Phase 01 already requires a minimal connectivity test.
+
+---
+
+# 18. SYSTEM SETTINGS
+
+Determine whether a `system_settings` table is appropriate.
+
+Potential settings might eventually include:
+
+* Application name
+* Invoice numbering configuration
+* Default currency
+* Other application-wide settings
+
+Do not over-engineer this table.
+
+---
+
+# 19. ACTIVITY LOG
+
+Determine the minimum useful activity/audit log structure.
+
+It may eventually record actions such as:
+
+```text
+LOGIN
+LOGOUT
+USER_CREATED
+USER_UPDATED
+USER_DEACTIVATED
+ROLE_CHANGED
+STUDENT_ENROLLED
+ATTENDANCE_UPDATED
+INVOICE_CREATED
+PAYMENT_RECORDED
+```
+
+Do not store unnecessary sensitive information.
+
+The detailed logging behavior can be implemented in later phases.
+
+---
+
+# 20. RELATIONSHIPS
+
+Carefully establish foreign-key relationships.
+
+For example:
+
+```text
+users
+  |
+  +---- teacher_profiles
+  |
+  +---- student_profiles
+
+teacher_profiles
+  |
+  +---- teacher_students
+                 |
+                 +---- student_profiles
+
+student_profiles
+  |
+  +---- attendance
+  +---- billing
+  +---- invoices
+                 |
+                 +---- invoice_items
+                 |
+                 +---- payments
+```
+
+This is conceptual only.
+
+Determine the actual schema based on the Phase 01 architecture.
+
+---
+
+# 21. REFERENTIAL INTEGRITY
+
+Use foreign keys wherever appropriate.
+
+Think carefully about:
+
+* `CASCADE`
+* `RESTRICT`
+* `SET NULL`
+
+Do not blindly use `ON DELETE CASCADE`.
+
+Historical financial records must not disappear accidentally because a related user account was removed.
+
+Document the chosen delete/update behavior for important relationships.
+
+---
+
+# 22. INDEXING
+
+Add appropriate indexes for commonly used queries.
+
+Consider indexes involving:
+
+* Username
+* Role
+* Status
+* Teacher/student relationships
+* Attendance date
+* Invoice number
+* Invoice student
+* Invoice teacher
+* Invoice billing period
+* Payment invoice
+* Payment date
+
+Do not add indexes indiscriminately.
+
+Every important index should have a practical reason.
+
+---
+
+# 23. UNIQUE CONSTRAINTS
+
+Identify values that must be unique.
+
+At minimum, consider:
+
+* Username
+* Invoice number
+
+Also consider uniqueness for relationships where appropriate.
+
+Do not create uniqueness constraints that prevent legitimate future records.
+
+---
+
+# 24. DATABASE CHARACTER SET
+
+Use a modern Unicode-compatible character set.
+
+Prefer:
+
+```text
+utf8mb4
+```
+
+with an appropriate collation.
+
+The application may eventually need to store Indian names and other multilingual data, so Unicode support is important.
+
+---
+
+# 25. DATABASE INITIALIZATION
+
+Create a reproducible database initialization mechanism.
+
+A fresh developer should be able to create the Tuman database from source-controlled files.
+
+Use an appropriate structure such as:
+
+```text
+database/
+    schema.sql
+    seed.sql
+```
+
+or migrations if the architecture from Phase 01 already uses migrations.
+
+Do not maintain multiple conflicting definitions of the same schema.
+
+---
+
+# 26. SEED DATA
+
+Create development-only seed data.
+
+Include at least:
+
+```text
+1 Administrator
+2 Teachers
+Several Students
+Teacher-student relationships
+Sample attendance
+Sample billing configuration
+Sample invoices
+Sample invoice items
+Sample payments
+```
+
+Use fictional data only.
+
+Do not use real people's personal information.
+
+Passwords used for seed users must be clearly documented as development-only.
+
+Never expose production credentials.
+
+---
+
+# 27. PHP DATABASE CONNECTION
+
+Ensure that the PHP application can connect to MySQL using the configuration mechanism established in Phase 01.
+
+Use PDO.
+
+Configure PDO appropriately for error handling and prepared statements.
+
+Do not place database credentials directly in source files.
+
+Do not hard-code:
+
+```text
+username
+password
+database host
+```
+
+in PHP source code.
+
+---
+
+# 28. DATABASE ERROR HANDLING
+
+Database connection failures should produce a safe application-level error.
+
+Do not expose:
+
+* Database passwords
+* SQL statements
+* Internal paths
+* Stack traces
+
+to normal users.
+
+Detailed errors may be logged during development.
+
+---
+
+# 29. DO NOT IMPLEMENT LATER PHASES
+
+This phase is specifically about the database foundation.
+
+Do NOT build:
+
+* Administrator user-management screens
+* Teacher dashboard
+* Student dashboard
+* Complete authentication UI
+* Attendance UI
+* Invoice UI
+* Payment UI
+* Email sending
+* PDF generation
+* Reports
+
+unless a tiny supporting change is absolutely necessary for database verification.
+
+Those belong to later phases.
+
+---
+
+# 30. DATABASE DOCUMENTATION
+
+Update:
+
+```text
+docs/database.md
+```
+
+It should explain:
+
+* Database purpose
+* Tables
+* Important fields
+* Primary keys
+* Foreign keys
+* Relationships
+* Important constraints
+* Indexes
+* Status values
+* Billing modes
+* Financial data handling
+* Seed data
+* Database installation
+
+Write it so that a student can understand the design.
+
+Where useful, include a simple textual ER diagram.
+
+---
+
+# 31. ARCHITECTURE DOCUMENTATION
+
+If the database implementation causes any architectural decision to change, update:
+
+```text
+docs/architecture.md
+```
+
+Do not leave documentation inconsistent with the actual code.
+
+---
+
+# 32. DEVELOPMENT LOG
+
+Update:
+
+```text
+docs/development-log.md
+```
+
+Record:
+
+* What was implemented
+* Important database decisions
+* Any deviations from the original plan
+* Any issues encountered
+* How those issues were resolved
+
+---
+
+# 33. README
+
+Update the README if database setup instructions have changed.
+
+A new developer should eventually be able to understand how to initialize the database.
+
+---
+
+# 34. TESTING
+
+After implementation, test the database.
+
+At minimum verify:
+
+### Connection
+
+PHP can connect to MySQL.
+
+### Schema
+
+All required tables are created.
+
+### Relationships
+
+Foreign keys behave correctly.
+
+### Constraints
+
+Duplicate usernames are rejected.
+
+Duplicate invoice numbers are rejected.
+
+Invalid foreign keys are rejected.
+
+### Seed data
+
+Seed data can be loaded successfully.
+
+### Financial values
+
+Decimal amounts are stored accurately.
+
+### Unicode
+
+Names containing non-ASCII characters can be stored and retrieved.
+
+### Historical data
+
+Changing a billing configuration does not alter existing invoice values.
+
+### Delete behavior
+
+Deleting/deactivating a user cannot accidentally destroy important historical financial records.
+
+---
+
+# 35. Inspect Rather Than Assume
+
+If you discover that Phase 01 already contains:
+
+* a database schema,
+* migrations,
+* a database abstraction,
+* configuration classes,
+* environment handling,
+
+do not create competing implementations.
+
+Extend the existing architecture where appropriate.
+
+If the existing implementation is flawed, correct it carefully and document why.
+
+---
+
+# 36. Code Quality
+
+Keep database-related code:
+
+* Simple
+* Readable
+* Secure
+* Reusable
+* Consistent with Phase 01
+* Easy for students to understand
+
+Do not introduce an ORM or framework merely because it is popular.
+
+Use the project's existing architectural direction unless there is a strong reason to change it.
+
+---
+
+# 37. PHASE COMPLETION CHECKLIST
+
+Before declaring Phase 02 complete, verify:
+
+* [ ] Existing project inspected
+* [ ] Phase 01 documentation reviewed
+* [ ] Database architecture finalized
+* [ ] MySQL schema created
+* [ ] Primary keys defined
+* [ ] Foreign keys defined
+* [ ] Appropriate indexes created
+* [ ] Appropriate unique constraints created
+* [ ] Unicode support configured
+* [ ] Financial data types reviewed
+* [ ] Delete/update behavior reviewed
+* [ ] Database initialization documented
+* [ ] Seed data created
+* [ ] PHP database connection verified
+* [ ] Database tests performed
+* [ ] `docs/database.md` updated
+* [ ] `docs/architecture.md` updated if necessary
+* [ ] `docs/development-log.md` updated
+* [ ] README updated if necessary
+* [ ] No later-phase functionality unnecessarily implemented
+
+---
+
+# 38. FINAL REPORT
+
+At the end of the phase, provide a concise report in this format:
+
+```text
+PHASE 02 — MYSQL DATABASE
+
+Status:
+Completed / Completed with issues / Blocked
+
+Database:
+- Database name:
+- Tables created:
+- Relationships:
+- Important constraints:
+
+Files created:
+- ...
+
+Files modified:
+- ...
+
+Seed data:
+- ...
+
+Tests performed:
+- ...
+
+Important architectural decisions:
+- ...
+
+Known issues:
+- ...
+
+Recommendations for Phase 03:
+- ...
+```
+
+Do not merely say "Phase 02 completed."
+
+Explain what was actually done.
+
+---
+
+# FINAL INSTRUCTION
+
+Implement **only Phase 02**.
+
+Use the existing Phase 01 implementation as the starting point.
+
+Inspect first.
+
+Design carefully.
+
+Implement incrementally.
+
+Test thoroughly.
+
+Document the result.
+
+Do not proceed automatically to Phase 03.

@@ -1,0 +1,5 @@
+<?php
+declare(strict_types=1);require_once dirname(__DIR__).'/includes/auth.php';require_once __DIR__.'/layout.php';require_once dirname(__DIR__).'/services/student_portal.php';$current=tuman_require_role('STUDENT');$records=tuman_student_attendance(tuman_database(),$current['id']);tuman_student_page_start('My attendance');
+?>
+<h1>My attendance</h1><div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Time</th><th>Duration</th><th>Status</th><th>Remarks</th></tr></thead><tbody><?php foreach($records as $record): ?><tr><td><?= htmlspecialchars($record['session_date'],ENT_QUOTES,'UTF-8') ?></td><td><?= htmlspecialchars($record['start_time']?substr($record['start_time'],0,5).'–'.substr($record['end_time'],0,5):'—',ENT_QUOTES,'UTF-8') ?></td><td><?= $record['duration_minutes']===null?'—':(int)$record['duration_minutes'].' min' ?></td><td><?= htmlspecialchars($record['status'],ENT_QUOTES,'UTF-8') ?></td><td><?= htmlspecialchars($record['remarks']??'—',ENT_QUOTES,'UTF-8') ?></td></tr><?php endforeach; ?></tbody></table></div><?php if($records===[]): ?><p>No attendance records are available.</p><?php endif; ?>
+<?php tuman_student_page_end(); ?>

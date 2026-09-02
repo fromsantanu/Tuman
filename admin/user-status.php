@@ -1,0 +1,11 @@
+<?php
+declare(strict_types=1);
+require_once dirname(__DIR__) . '/includes/auth.php'; require_once dirname(__DIR__) . '/includes/csrf.php'; require_once __DIR__ . '/layout.php'; require_once dirname(__DIR__) . '/services/admin_users.php';
+$current = tuman_require_role('ADMIN'); $error = null;
+try { $id = tuman_admin_user_id($_GET['id'] ?? $_POST['id'] ?? null); $user = tuman_admin_user(tuman_database(), $id); if ($user === null) { throw new InvalidArgumentException('User not found.'); } } catch (Throwable $exception) { http_response_code(404); tuman_admin_page_start('User not found'); echo '<h1>User not found</h1><p>The requested user is unavailable.</p>'; tuman_admin_page_end(); exit; }
+$nextStatus = $user['status'] === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') { if (!tuman_csrf_is_valid($_POST['csrf_token'] ?? null)) { $error = 'Your request could not be verified. Please try again.'; } else { try { tuman_admin_set_user_status(tuman_database(), $current['id'], $id, $nextStatus); header('Location: /Tuman/admin/users.php?status=1'); exit; } catch (InvalidArgumentException $exception) { $error = $exception->getMessage(); } catch (Throwable $exception) { error_log('Tuman user status change failed: ' . $exception->getMessage()); $error = 'Unable to change the account status right now.'; } } }
+tuman_admin_page_start('Change account status');
+?>
+<h1><?= $nextStatus === 'INACTIVE' ? 'Deactivate' : 'Activate' ?> user</h1><p>User: <strong><?= htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8') ?></strong></p><p>Current status: <?= htmlspecialchars($user['status'], ENT_QUOTES, 'UTF-8') ?>.</p><p><?= $nextStatus === 'INACTIVE' ? 'An inactive user cannot sign in. Historical records will be retained.' : 'This user will be able to sign in again.' ?></p><?php if ($error): ?><p role="alert"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tuman_csrf_token(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="id" value="<?= $id ?>"><button type="submit">Confirm <?= strtolower($nextStatus) ?></button> <a href="/Tuman/admin/users.php">Cancel</a></form>
+<?php tuman_admin_page_end(); ?>
