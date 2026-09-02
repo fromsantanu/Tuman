@@ -1,5 +1,9 @@
 # Tuman user manual
 
+## Invoice PDFs and email notices (Phases 13-14)
+
+Teachers can save separate Indian and international payment instructions in **Payment details**. Invoice detail pages provide a PDF download including the student name/address and currency-appropriate payment block. **Email invoice** and **Send reminder** create pending queue entries; they are not sent until SMTP is configured. Receipt email is pending.
+
 ## Status
 
 Tuman is in architecture planning. There are no usable application screens yet, so this is an outline for the manual that will be completed as modules are implemented.

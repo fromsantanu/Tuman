@@ -1,5 +1,13 @@
 # Testing approach
 
+## Phases 13-14 results
+
+| Test | Result | Notes |
+| --- | --- | --- |
+| Payment-details migration and PDF export lookup | PASS | Local database table exists and an owned invoice resolves for export. |
+| Notification page/service syntax | PASS | Changed PHP files passed `php -l`. |
+| SMTP delivery and receipt emails | BLOCKED | Delivery is intentionally not configured and receipt email is pending. |
+
 ## Current phase
 
 Phase 02 added PHP configuration and SQL source files. PHP syntax was checked successfully for the environment loader, PDO helper, and connection test. The schema contains 14 tables and the naming check confirmed they all use `tmn_`.

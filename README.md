@@ -4,7 +4,7 @@ Tuman is a planned PHP and MySQL application for individual tuition teachers and
 
 ## Current status
 
-**Phase 12 — Student Portal** is complete. Students can securely view their own profile, attendance, invoices, and payment history. All financial records remain read-only and display their stored currency codes.
+**Phase 14 — Email Notifications** is partially complete. Teachers can queue invoice notices and payment reminders for their own students; actual SMTP delivery and payment-receipt emails remain pending configuration and implementation.
 
 ## Planned technology
 
@@ -61,8 +61,8 @@ Teachers can open `/Tuman/teacher/billing.php` to add, edit, and end hourly or f
 
 ## Invoices module
 
-Teachers can open `/Tuman/teacher/invoices.php` to generate one-calendar-month invoice drafts for their own students. Generated items, rates, quantities, and totals are immutable snapshots. Drafts can be issued or cancelled; payment handling is not yet available.
+Teachers can open `/Tuman/teacher/invoices.php` to generate one-calendar-month invoice drafts for their own students. Generated items, rates, quantities, and totals are immutable snapshots. Drafts can be issued or cancelled, downloaded as PDFs, and queued for email notification.
 
 ## Next step
 
-Plan Phase 12 after reviewing the completed payment workflow.
+Complete Phase 14 SMTP delivery and payment-receipt emails.

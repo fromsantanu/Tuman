@@ -1,5 +1,13 @@
 # Development log
 
+## Phase 13 - Receipts and PDF exports
+
+Added Teacher-owned payment details, currency-aware invoice PDF downloads, and payment receipt PDF exports. Invoice PDFs include the issued student's name and available address.
+
+## Phase 14 - Email notifications (partial)
+
+Added a Teacher-owned invoice notice and payment-reminder queue using `tmn_email_log`. SMTP delivery and receipt emails are not implemented yet.
+
 ## Phase 00 — Project specification and architecture
 
 **Date:** 2026-09-01  

@@ -119,6 +119,10 @@ Invoice items are created as immutable snapshots. Present hourly attendance crea
 
 ## Security baseline
 
+## Documents and notifications (Phases 13-14)
+
+Teachers can maintain their own Indian and international payment instructions in `tmn_teacher_payment_details`. Teacher-owned invoices can be exported as PDFs; INR selects Indian instructions and other currencies select international instructions. Phase 14 queues invoice notices and payment reminders in `tmn_email_log` with safe metadata. SMTP delivery is deliberately disabled until approved environment credentials are configured; pending queue records must not be represented as sent messages.
+
 - PDO prepared statements for all values originating outside trusted program code.
 - `password_hash()` and `password_verify()` for passwords; passwords are never stored or logged in plain text.
 - CSRF tokens on all state-changing forms.
