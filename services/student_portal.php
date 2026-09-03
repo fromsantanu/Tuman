@@ -48,3 +48,7 @@ function tuman_student_outstanding_by_currency(PDO $database, int $studentId): a
 {
     $statement=$database->prepare("SELECT i.currency_code, i.total_amount, COALESCE(SUM(CASE WHEN p.status='VALID' THEN p.amount ELSE 0 END),0) paid FROM tmn_invoices i INNER JOIN tmn_teacher_students ts ON ts.id=i.teacher_student_id LEFT JOIN tmn_payments p ON p.invoice_id=i.id WHERE ts.student_user_id=:student_id AND i.status IN ('ISSUED','PARTIALLY_PAID') GROUP BY i.id,i.currency_code,i.total_amount");$statement->execute(['student_id'=>$studentId]);$totals=[];foreach($statement->fetchAll() as $row){$currency=$row['currency_code'];$due=tuman_invoice_minor_from_decimal((string)$row['total_amount'])-tuman_invoice_minor_from_decimal((string)$row['paid']);$totals[$currency]=($totals[$currency]??0)+$due;}return $totals;
 }
+function tuman_student_credits(PDO $database,int $studentId): array
+{
+    $statement=$database->prepare("SELECT c.*,COALESCE(NULLIF(tp.first_name,''),u.username) teacher_first_name,tp.last_name teacher_last_name FROM tmn_student_credits c INNER JOIN tmn_teacher_students ts ON ts.id=c.teacher_student_id INNER JOIN tmn_users u ON u.id=ts.teacher_user_id LEFT JOIN tmn_teacher_profiles tp ON tp.user_id=u.id WHERE ts.student_user_id=:student_id ORDER BY c.created_at DESC");$statement->execute(['student_id'=>$studentId]);return $statement->fetchAll();
+}

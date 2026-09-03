@@ -1,0 +1,20 @@
+Phase 17 — Refunds, Credits, and Overpayment Handling
+
+Implement auditable Teacher-owned handling for payment overages without changing historical invoices or payment records.
+
+Requirements
+1. When a valid payment exceeds the invoice balance, record the full payment and create an active Student credit for the excess amount.
+2. Credits belong to exactly one Teacher-student assignment and currency. Never expose a Teacher's credits or Student records to another Teacher.
+3. Teachers can apply part or all of an active credit to an issued or partially paid invoice for that same assignment and currency. The applied amount cannot exceed either the unused credit or invoice balance.
+4. Teachers can record a refund only from unused credit. Refunds reduce the remaining credit and are retained as permanent financial history.
+5. Invoice payment status must reflect valid payments plus applied credits. Issued invoices may become partially paid or paid; draft and cancelled invoices remain ineligible.
+6. Existing void-payment behaviour remains available for correcting an erroneous payment. Do not delete payments, credits, applications, or refunds.
+7. Add Teacher screens for credit balances, applying credit, and recording a refund. Add a Student read-only credit-history view limited to the Student's own Teacher assignments.
+8. Use new tmn_-prefixed tables, foreign keys, transactions, PDO prepared statements, CSRF validation, strict server-side decimal/currency validation, and activity logging. Do not permit negative balances or cross-Teacher access.
+9. Document the migration and user workflow, and validate PHP syntax plus key ownership and validation paths.
+
+Acceptance checks
+- A payment above an invoice's balance creates a credit equal to only the excess.
+- Partial credit application updates the invoice and credit balance correctly.
+- A refund cannot exceed the unused credit, and an applied/refunded credit cannot be reused.
+- Different currencies, Students, Teachers, draft invoices, cancelled invoices, and unauthorised URLs are rejected.

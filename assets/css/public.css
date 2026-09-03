@@ -69,9 +69,16 @@ table { border-color: rgba(97,150,200,.28); border-radius: .8rem; box-shadow: 0 
 
 /* Signed-in areas use a sidebar so large navigation menus never crowd a header. */
 .app-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; }
-.app-sidebar { position: sticky; top: 0; align-self: start; height: 100vh; padding: 1.8rem 1rem; background: linear-gradient(180deg, #07152c, #0b2d51); border-right: 1px solid rgba(104, 173, 220, .22); }
+.app-sidebar { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 1.8rem 1rem; background: linear-gradient(180deg, #07152c, #0b2d51); border-right: 1px solid rgba(104, 173, 220, .22); }
 .app-sidebar .brand { display: block; padding: 0 .75rem 1.55rem; }
 .app-sidebar nav { display: flex; flex-direction: column; align-items: stretch; gap: .22rem; }
+.app-sidebar .nav-group { display: flex; flex-direction: column; gap: .12rem; padding: .2rem 0 .45rem; border-bottom: 1px solid rgba(104,173,220,.14); }
+.app-sidebar .nav-group:last-child { border-bottom: 0; }
+.app-sidebar .nav-group summary { cursor: pointer; padding: .42rem .75rem; color: #79b9d7; font-size: .76rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; list-style: none; }
+.app-sidebar .nav-group summary::-webkit-details-marker { display: none; }
+.app-sidebar .nav-group summary::after { content: '+'; float: right; font-size: 1rem; }
+.app-sidebar .nav-group[open] summary::after { content: '–'; }
+.app-sidebar .nav-group a { display: block; width: 100%; margin-left: .7rem; width: calc(100% - .7rem); }
 .app-sidebar nav a { padding: .68rem .75rem; color: #cfe1f5; border: 1px solid transparent; border-radius: .45rem; }
 .app-sidebar nav a:hover, .app-sidebar nav a:focus-visible { background: rgba(65,199,214,.14); border-color: rgba(65,199,214,.32); color: #fff; }
 .app-main { min-width: 0; padding: 3rem; }
@@ -80,4 +87,4 @@ table { border-color: rgba(97,150,200,.28); border-radius: .8rem; box-shadow: 0 
 .profile-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 2rem; max-width: 780px; }
 .profile-heading h1, .profile-heading h2 { margin-top: 0; }
 @media (max-width: 600px) { .profile-heading { display: block; } .profile-heading .profile-photo { margin-top: 1rem; } }
-@media (max-width: 800px) { .app-shell { display: block; } .app-sidebar { position: static; height: auto; padding: 1rem; } .app-sidebar .brand { padding: 0 .35rem .7rem; } .app-sidebar nav { flex-direction: row; flex-wrap: wrap; } .app-sidebar nav a { padding: .42rem .58rem; } .app-main { padding: 2rem 1rem; } }
+@media (max-width: 800px) { .app-shell { display: block; } .app-sidebar { position: static; height: auto; padding: 1rem; } .app-sidebar .brand { padding: 0 .35rem .7rem; } .app-sidebar nav { flex-direction: column; align-items: stretch; } .app-sidebar .nav-group { width: 100%; padding: 0; border: 0; } .app-sidebar .nav-group summary { padding-left: .35rem; } .app-sidebar nav a { padding: .42rem .58rem; } .app-main { padding: 2rem 1rem; } }
