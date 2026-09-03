@@ -27,7 +27,7 @@ function tuman_teacher_payment(PDO $database, int $teacherId, int $paymentId): ?
 
 function tuman_teacher_payment_invoices(PDO $database, int $teacherId, bool $eligibleOnly = false): array
 {
-    $sql = "SELECT i.*, sp.first_name, sp.last_name, GREATEST(0, i.total_amount - COALESCE((SELECT SUM(p.amount) FROM tmn_payments p WHERE p.invoice_id=i.id AND p.status='VALID'),0) - COALESCE((SELECT SUM(ca.amount) FROM tmn_credit_applications ca WHERE ca.invoice_id=i.id),0)) AS outstanding_amount FROM tmn_invoices i INNER JOIN tmn_teacher_students ts ON ts.id=i.teacher_student_id INNER JOIN tmn_student_profiles sp ON sp.user_id=ts.student_user_id WHERE ts.teacher_user_id=:teacher_id";
+    $sql = "SELECT i.*, sp.first_name, sp.last_name, GREATEST(0, i.total_amount - COALESCE((SELECT SUM(p.amount) FROM tmn_payments p WHERE p.invoice_id=i.id AND p.status='VALID'),0) + COALESCE((SELECT SUM(r.amount) FROM tmn_refunds r WHERE r.invoice_id=i.id AND r.refund_type='PAYMENT'),0) - COALESCE((SELECT SUM(ca.amount) FROM tmn_credit_applications ca WHERE ca.invoice_id=i.id),0)) AS outstanding_amount FROM tmn_invoices i INNER JOIN tmn_teacher_students ts ON ts.id=i.teacher_student_id INNER JOIN tmn_student_profiles sp ON sp.user_id=ts.student_user_id WHERE ts.teacher_user_id=:teacher_id";
     if ($eligibleOnly) { $sql .= " AND i.status IN ('ISSUED','PARTIALLY_PAID')"; }
     $sql .= ' ORDER BY i.invoice_date DESC, i.id DESC'; $statement = $database->prepare($sql); $statement->execute(['teacher_id' => $teacherId]); return $statement->fetchAll();
 }
@@ -53,7 +53,9 @@ function tuman_update_invoice_payment_status(PDO $database, int $teacherId, arra
     $payments->execute(['invoice_id' => $invoice['id']]);
     $credits = $database->prepare('SELECT COALESCE(SUM(amount),0) FROM tmn_credit_applications WHERE invoice_id=:invoice_id');
     $credits->execute(['invoice_id' => $invoice['id']]);
-    $paymentMinor = tuman_invoice_minor_from_decimal((string) $payments->fetchColumn()) ?? 0;
+    $refunds = $database->prepare("SELECT COALESCE(SUM(amount),0) FROM tmn_refunds WHERE invoice_id=:invoice_id AND refund_type='PAYMENT'");
+    $refunds->execute(['invoice_id' => $invoice['id']]);
+    $paymentMinor = (tuman_invoice_minor_from_decimal((string) $payments->fetchColumn()) ?? 0) - (tuman_invoice_minor_from_decimal((string) $refunds->fetchColumn()) ?? 0);
     $creditMinor = tuman_invoice_minor_from_decimal((string) $credits->fetchColumn()) ?? 0;
     $settledMinor = min($paymentMinor + $creditMinor, $totalMinor);
     $status = $settledMinor === 0 ? 'ISSUED' : ($settledMinor === $totalMinor ? 'PAID' : 'PARTIALLY_PAID');

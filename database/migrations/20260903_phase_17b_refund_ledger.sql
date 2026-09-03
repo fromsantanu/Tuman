@@ -1,0 +1,25 @@
+-- Phase 17B: a permanent, unified refund ledger.
+CREATE TABLE IF NOT EXISTS tmn_refunds (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    teacher_student_id BIGINT UNSIGNED NOT NULL,
+    invoice_id BIGINT UNSIGNED NULL,
+    payment_id BIGINT UNSIGNED NULL,
+    credit_id BIGINT UNSIGNED NULL,
+    refund_type ENUM('PAYMENT','CREDIT','ADJUSTMENT') NOT NULL,
+    refund_date DATE NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    currency_code CHAR(3) NOT NULL,
+    refund_method ENUM('CASH','UPI','BANK_TRANSFER','CARD','OTHER') NOT NULL,
+    reference_number VARCHAR(100) NULL,
+    reason VARCHAR(500) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_tmn_refunds_assignment FOREIGN KEY (teacher_student_id) REFERENCES tmn_teacher_students(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_tmn_refunds_invoice FOREIGN KEY (invoice_id) REFERENCES tmn_invoices(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_tmn_refunds_payment FOREIGN KEY (payment_id) REFERENCES tmn_payments(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_tmn_refunds_credit FOREIGN KEY (credit_id) REFERENCES tmn_student_credits(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT chk_tmn_refunds_amount CHECK (amount > 0),
+    KEY idx_tmn_refunds_assignment_date (teacher_student_id,refund_date),
+    KEY idx_tmn_refunds_payment (payment_id),
+    KEY idx_tmn_refunds_credit (credit_id),
+    KEY idx_tmn_refunds_invoice (invoice_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

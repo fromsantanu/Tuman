@@ -100,16 +100,26 @@ function tuman_invoice_generated_items(PDO $database, int $assignmentId, string 
         if ($rateMinor === null) { throw new InvalidArgumentException('The billing rate is too large for an invoice.'); }
         $items[] = ['description' => 'Monthly tuition — ' . (new DateTimeImmutable($periodFrom))->format('F Y'), 'quantity' => '1.00', 'unit_rate' => tuman_invoice_decimal_from_minor($rateMinor), 'amount' => tuman_invoice_decimal_from_minor($rateMinor), 'amount_minor' => $rateMinor, 'currency_code' => (string) $fixedRules[0]['currency_code']];
     }
-    $attendance = $database->prepare("SELECT session_date, start_time, end_time, duration_minutes FROM tmn_attendance WHERE teacher_student_id = :assignment_id AND status = 'PRESENT' AND duration_minutes > 0 AND session_date >= :period_from AND session_date <= :period_to ORDER BY session_date, start_time, id");
+    $attendance = $database->prepare("SELECT session_date, start_time, end_time, duration_minutes, billing_rule_id FROM tmn_attendance WHERE teacher_student_id = :assignment_id AND status = 'PRESENT' AND duration_minutes > 0 AND session_date >= :period_from AND session_date <= :period_to ORDER BY session_date, start_time, id");
     $attendance->execute(['assignment_id' => $assignmentId, 'period_from' => $periodFrom, 'period_to' => $periodTo]);
     foreach ($attendance->fetchAll() as $session) {
-        $rule = tuman_invoice_required_rule($database, $assignmentId, 'HOURLY', $session['session_date']);
+        if ($session['billing_rule_id'] !== null) {
+            $selected = $database->prepare("SELECT * FROM tmn_student_billing WHERE id=:id AND teacher_student_id=:assignment_id AND billing_mode='HOURLY' AND effective_from<=:date AND (effective_to IS NULL OR effective_to>=:date)");
+            $selected->execute(['id' => $session['billing_rule_id'], 'assignment_id' => $assignmentId, 'date' => $session['session_date']]); $rule = $selected->fetch();
+            if (!is_array($rule)) { throw new InvalidArgumentException('The hourly rule selected for an attendance session is unavailable for its date.'); }
+        } elseif ($fixedRules !== []) {
+            continue;
+        } else {
+            $automatic = $database->prepare("SELECT * FROM tmn_student_billing WHERE teacher_student_id=:assignment_id AND billing_mode='HOURLY' AND status='ACTIVE' AND effective_from<=:date AND (effective_to IS NULL OR effective_to>=:date) ORDER BY rate DESC,id DESC LIMIT 1");
+            $automatic->execute(['assignment_id' => $assignmentId, 'date' => $session['session_date']]); $rule = $automatic->fetch();
+            if (!is_array($rule)) { throw new InvalidArgumentException('No applicable hourly billing rule exists for an attendance session.'); }
+        }
         $rateMinor = tuman_invoice_minor_from_decimal((string) $rule['rate']);
         if ($rateMinor === null) { throw new InvalidArgumentException('The billing rate is too large for an invoice.'); }
         $quantityHundredths = tuman_invoice_round_half_up((int) $session['duration_minutes'] * 100, 60);
         $amountMinor = tuman_invoice_round_half_up($rateMinor * $quantityHundredths, 100);
         if ($amountMinor > TUMAN_INVOICE_MAX_MINOR) { throw new InvalidArgumentException('The generated invoice amount is too large.'); }
-        $items[] = ['description' => 'Hourly tuition — ' . $session['session_date'] . ', ' . substr((string) $session['start_time'], 0, 5) . '–' . substr((string) $session['end_time'], 0, 5), 'quantity' => tuman_invoice_decimal_from_hundredths($quantityHundredths), 'unit_rate' => tuman_invoice_decimal_from_minor($rateMinor), 'amount' => tuman_invoice_decimal_from_minor($amountMinor), 'amount_minor' => $amountMinor, 'currency_code' => (string) $rule['currency_code']];
+        $items[] = ['description' => 'Hourly tuition — ' . ($rule['rule_name'] ?? ('Rule #' . $rule['id'])) . ' — ' . $session['session_date'] . ', ' . substr((string) $session['start_time'], 0, 5) . '–' . substr((string) $session['end_time'], 0, 5), 'quantity' => tuman_invoice_decimal_from_hundredths($quantityHundredths), 'unit_rate' => tuman_invoice_decimal_from_minor($rateMinor), 'amount' => tuman_invoice_decimal_from_minor($amountMinor), 'amount_minor' => $amountMinor, 'currency_code' => (string) $rule['currency_code']];
     }
     return $items;
 }

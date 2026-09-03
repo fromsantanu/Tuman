@@ -1,0 +1,169 @@
+# Prompt-Phase_19.txt
+
+## Phase 19 — Reports: Income, Outstanding Balances, Student and Teacher Summaries
+
+Continue development of the Tuman Tuition Management System in:
+
+`C:\xampp\htdocs\Tuman`
+
+Read the current codebase and existing documentation before making changes. Preserve all working functionality from Phases 01–18.
+
+### Objective
+
+Build a secure teacher reporting area that gives useful financial and operational summaries without exposing one teacher’s information to another teacher.
+
+All database table names must begin with `tmn_`.
+
+### Reporting area
+
+Add a **Reports** option under a new collapsible **Reports** section in the Teacher sidebar.
+
+Create a teacher report dashboard with a date-range filter:
+
+- From date
+- To date
+- Optional student filter
+- Apply filters button
+- Clear/reset option
+
+Default range should be the current calendar month.
+
+Show a clear message if no records match the selected filters.
+
+### 1. Income report
+
+Create an income report based on recorded transactions.
+
+Show:
+
+- Total payments received
+- Total payment refunds
+- Net income: payments received minus payment refunds
+- Credit refunds separately
+- Other/adjustment refunds separately
+- Net cash retained after all refunds
+- Breakdown by currency; never add amounts from different currencies together
+- Payment-method breakdown, such as Cash, UPI, Bank Transfer, Card, and Other
+- Transaction list with:
+  - Date
+  - Student
+  - Transaction type
+  - Invoice number where applicable
+  - Method
+  - Reference
+  - Reason or remarks
+  - Amount
+  - Currency
+
+Clarify that applying a credit to an invoice is not new income, since the money was already received when the original payment was recorded.
+
+### 2. Outstanding balance report
+
+Show unpaid and partially paid invoices for the selected teacher.
+
+For each invoice, show:
+
+- Invoice number
+- Student
+- Billing period
+- Invoice total
+- Payments received
+- Credits applied
+- Payment refunds, if any
+- Outstanding balance
+- Currency
+- Invoice status
+- Link to view the invoice
+
+Provide totals grouped by currency.
+
+Outstanding calculation must use the financial ledger:
+
+`invoice total - valid payments - credits applied + payment refunds`
+
+Do not include voided payments as received income.
+
+### 3. Student summary report
+
+Show a report for each student assigned to the signed-in teacher.
+
+Include:
+
+- Student name
+- Email and phone
+- Assignment status
+- Number of attendance entries in the chosen period
+- Present, absent, cancelled, and other attendance counts where available
+- Invoices raised in the period
+- Total invoiced, grouped by currency
+- Payments received, grouped by currency
+- Credits currently available, grouped by currency
+- Outstanding balance, grouped by currency
+- Link to the student profile/view page
+
+If a student studies under another teacher, do not expose that relationship or those financial records.
+
+### 4. Teacher summary report
+
+Create an administrative teacher summary report, visible only to Administrators.
+
+For each teacher, show:
+
+- Teacher name
+- Email
+- Active student count
+- Inactive student count
+- Invoices raised in the selected period
+- Payments received in the selected period
+- Refunds made in the selected period
+- Net income, grouped by currency
+- Outstanding balance, grouped by currency
+
+Administrators can view an overall summary and filter by teacher.
+
+Teachers must not be able to access this report or data belonging to other teachers.
+
+### Security and correctness
+
+- Require the appropriate authenticated role on every report page.
+- All teacher queries must be constrained to the signed-in teacher’s ID.
+- All administrator-only queries must require the `ADMIN` role.
+- Use prepared statements.
+- Validate all date and filter inputs.
+- Escape all displayed output.
+- Do not expose database errors to users.
+- Use the existing invoice, payment, credit, refund, and assignment records as the source of truth.
+- Do not alter historical transactions or invoices.
+
+### User interface
+
+Follow the existing dark Tuman theme.
+
+- Use readable cards for headline totals.
+- Use responsive tables with horizontal scrolling on narrow screens.
+- Present amounts with the relevant currency.
+- Use clear labels and short explanatory text.
+- Use buttons rather than plain links for primary actions.
+- Keep the report layout usable on desktop and mobile screens.
+
+### Documentation and verification
+
+Update:
+
+- `README.md`
+- Any phase/status documentation that lists completed work
+- Database/migration documentation if a migration is needed
+
+Verify at minimum:
+
+- PHP syntax for all changed and new files
+- Income totals correctly exclude voided payments
+- Payment refunds reduce net income
+- Credit applications do not count as new income
+- Outstanding balances correctly include payment refunds
+- Multi-currency amounts remain separate
+- A teacher cannot access another teacher’s records
+- A non-administrator cannot access the administrator teacher summary
+- Empty date ranges and filters show a safe, helpful result
+
+Do not add unrelated features. Finish with a concise summary of changed files, report URLs, any migration required, and verification completed.

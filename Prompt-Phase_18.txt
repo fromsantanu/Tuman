@@ -1,0 +1,10 @@
+Phase 18 — Named Billing Rules and Attendance-Based Rule Selection
+
+Allow a Teacher to maintain one fixed-monthly rule and multiple overlapping hourly rules for the same Student. Every rule has a clear name.
+
+Invoice policy:
+- Add an applicable fixed-monthly rule once for the billing month.
+- An attendance entry with a selected hourly rule bills at that rule's historical rate.
+- If a fixed-monthly rule exists, an attendance entry without an hourly selection adds no extra charge.
+- If no fixed-monthly rule exists, an attendance entry without a selection automatically uses the highest active hourly rule for its date.
+- Preserve invoice snapshots and validate Teacher ownership, assignment, effective dates, and currency consistency.

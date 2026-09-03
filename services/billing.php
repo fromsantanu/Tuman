@@ -24,6 +24,7 @@ function tuman_billing_normalize_rate(string $rate): ?string
 function tuman_validate_billing(array $input): array
 {
     $errors = [];
+    if (trim((string)($input['rule_name'] ?? '')) === '' || strlen((string)($input['rule_name'] ?? '')) > 100) { $errors['rule_name'] = 'Rule name is required and must be 100 characters or fewer.'; }
     if (!in_array($input['billing_mode'] ?? '', TUMAN_BILLING_MODES, true)) { $errors['billing_mode'] = 'Choose a valid billing mode.'; }
     if (tuman_billing_normalize_rate($input['rate'] ?? '') === null) { $errors['rate'] = 'Rate must be a non-negative amount with no more than two decimal places.'; }
     if (tuman_currency_code((string) ($input['currency_code'] ?? 'INR')) === null) { $errors['currency_code'] = 'Choose a supported currency.'; }
@@ -33,12 +34,12 @@ function tuman_validate_billing(array $input): array
     return $errors;
 }
 
-/** @return array{billing_mode:string,rate:string,currency_code:string,effective_from:string,effective_to:?string} */
+/** @return array{rule_name:string,billing_mode:string,rate:string,currency_code:string,effective_from:string,effective_to:?string} */
 function tuman_billing_values(array $input): array
 {
     $errors = tuman_validate_billing($input);
     if ($errors !== []) { throw new InvalidArgumentException(reset($errors)); }
-    return ['billing_mode' => $input['billing_mode'], 'rate' => tuman_billing_normalize_rate($input['rate']), 'currency_code' => tuman_currency_code((string) ($input['currency_code'] ?? 'INR')), 'effective_from' => $input['effective_from'], 'effective_to' => $input['effective_to'] === '' ? null : $input['effective_to']];
+    return ['rule_name' => trim((string)$input['rule_name']), 'billing_mode' => $input['billing_mode'], 'rate' => tuman_billing_normalize_rate($input['rate']), 'currency_code' => tuman_currency_code((string) ($input['currency_code'] ?? 'INR')), 'effective_from' => $input['effective_from'], 'effective_to' => $input['effective_to'] === '' ? null : $input['effective_to']];
 }
 
 /** @param array<string, mixed> $assignment */
@@ -76,7 +77,7 @@ function tuman_billing_has_overlap(array $rules, array $candidate, ?int $exceptI
 {
     $candidateEnd = $candidate['effective_to'] ?? '9999-12-31';
     foreach ($rules as $rule) {
-        if (($exceptId !== null && (int) $rule['id'] === $exceptId) || $rule['billing_mode'] !== $candidate['billing_mode']) { continue; }
+        if (($exceptId !== null && (int) $rule['id'] === $exceptId) || $rule['billing_mode'] !== 'FIXED_MONTHLY' || $candidate['billing_mode'] !== 'FIXED_MONTHLY') { continue; }
         if ($candidate['effective_from'] <= ($rule['effective_to'] ?? '9999-12-31') && $rule['effective_from'] <= $candidateEnd) { return true; }
     }
     return false;
@@ -98,7 +99,7 @@ function tuman_create_billing_rule(PDO $database, int $teacherId, int $assignmen
         if ($assignment['assignment_status'] !== 'ACTIVE') { throw new InvalidArgumentException('Choose an active student.'); }
         $values = tuman_billing_values($input); tuman_validate_billing_dates_for_assignment($assignment, $values['effective_from'], $values['effective_to']);
         if (tuman_billing_has_overlap(tuman_lock_active_billing_rules($database, $assignmentId), $values)) { throw new InvalidArgumentException('An active rule with this billing mode already covers part of that date range.'); }
-        $statement = $database->prepare("INSERT INTO tmn_student_billing (teacher_student_id, billing_mode, rate, currency_code, effective_from, effective_to, status) VALUES (:assignment_id, :billing_mode, :rate, :currency_code, :effective_from, :effective_to, 'ACTIVE')");
+        $statement = $database->prepare("INSERT INTO tmn_student_billing (teacher_student_id, rule_name, billing_mode, rate, currency_code, effective_from, effective_to, status) VALUES (:assignment_id, :rule_name, :billing_mode, :rate, :currency_code, :effective_from, :effective_to, 'ACTIVE')");
         $statement->execute(['assignment_id' => $assignmentId] + $values); $billingId = (int) $database->lastInsertId();
         tuman_log_activity($database, $teacherId, 'BILLING_RULE_CREATED', 'STUDENT_BILLING', $billingId, ['billing_mode' => $values['billing_mode'], 'currency_code' => $values['currency_code']]);
         if ($ownsTransaction) { $database->commit(); }
@@ -111,9 +112,10 @@ function tuman_update_billing_rule(PDO $database, int $teacherId, int $billingId
     try {
         $record = tuman_teacher_billing_rule($database, $teacherId, $billingId);
         if ($record === null) { throw new InvalidArgumentException('Billing rule not found.'); }
+        $input['rule_name'] = $input['rule_name'] ?? $record['rule_name'];
         $values = tuman_billing_values($input); tuman_validate_billing_dates_for_assignment(['start_date' => $record['assignment_start_date'], 'end_date' => $record['assignment_end_date']], $values['effective_from'], $values['effective_to']);
         if ($record['status'] === 'ACTIVE' && tuman_billing_has_overlap(tuman_lock_active_billing_rules($database, (int) $record['teacher_student_id']), $values, $billingId)) { throw new InvalidArgumentException('An active rule with this billing mode already covers part of that date range.'); }
-        $statement = $database->prepare('UPDATE tmn_student_billing SET billing_mode = :billing_mode, rate = :rate, currency_code = :currency_code, effective_from = :effective_from, effective_to = :effective_to WHERE id = :id');
+        $statement = $database->prepare('UPDATE tmn_student_billing SET rule_name = :rule_name, billing_mode = :billing_mode, rate = :rate, currency_code = :currency_code, effective_from = :effective_from, effective_to = :effective_to WHERE id = :id');
         $statement->execute($values + ['id' => $billingId]);
         tuman_log_activity($database, $teacherId, 'BILLING_RULE_UPDATED', 'STUDENT_BILLING', $billingId, ['billing_mode' => $values['billing_mode'], 'currency_code' => $values['currency_code']]);
         if ($ownsTransaction) { $database->commit(); }
