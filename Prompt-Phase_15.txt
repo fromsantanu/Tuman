@@ -1,0 +1,97 @@
+# TUMAN — Phase 15
+
+## Shared Student Accounts and Multi-Teacher Views
+
+Phase 14 is partially complete. Implement only Phase 15 — Shared Student Accounts and Multi-Teacher Views.
+
+## Objective
+
+Support the common case where one Student account studies with more than one Teacher. A Teacher must be able to create a new Student account or link an existing Student account to their own Teacher-student assignment. Teachers must never see, infer, query, or be told about another Teacher associated with that Student.
+
+The Student Portal must let the Student view attendance, invoices, payments, and outstanding balances either for **all my Teachers** or for one selected Teacher. Financial totals must never mix different currencies.
+
+Do not implement family accounts, parent accounts, Teacher collaboration, cross-Teacher messaging, shared billing rules, automatic notifications, email delivery, gateways, refunds, reports, or unrelated Phase 14 work.
+
+## Existing-account enrolment
+
+Replace the single-purpose new-account enrolment flow with a clear, CSRF-protected **Enrol or link student** workflow.
+
+### New Student account
+
+- Retain the existing account-creation path, validation, password requirements, transaction, profile creation, and active assignment creation.
+- Keep username and non-null email uniqueness. Do not weaken the unique email rule or create duplicate user accounts.
+
+### Existing Student account
+
+- Permit a Teacher to link an existing `STUDENT` account by the email address the Student supplies to that Teacher.
+- The action must create only a new `tmn_teacher_students` assignment for the current Teacher. It must not change the existing Student username, password hash, email, profile, account status, billing rules, invoices, payments, or assignments.
+- An existing account may be linked to many different Teachers, once per Teacher.
+- If the account has an incompatible role, is inactive, lacks a matching Student account, or is already assigned to the current Teacher, return a safe, neutral error. Do not disclose whether the email belongs to an Administrator, Teacher, or Student, and do not disclose other Teachers or their data.
+- Do not show another Teacher name, count, assignment date, billing rate, attendance, invoice, payment, or activity-log information anywhere in a Teacher workflow.
+- Treat the supplied email as an identifier, never as authorization proof for unrelated records. All later reads/writes must remain assignment and ownership scoped.
+- Record a minimal `STUDENT_LINKED` activity event on success, with only the linked Student ID/assignment ID. Do not record other Teacher details or email address in activity metadata.
+
+### Assignment integrity
+
+- Add a documented, idempotent migration and fresh-schema update that prevents duplicate Teacher/Student pairs: `UNIQUE (teacher_user_id, student_user_id)` on `tmn_teacher_students`.
+- The migration must detect any existing duplicate pairs before adding the key and stop with clear operator instructions rather than silently deleting history.
+- A former inactive assignment may be reactivated only if the existing application/history rules can do so safely and explicitly; otherwise reject it without creating a duplicate pair. Do not lose historical dates or status values.
+- Preserve all existing rows and existing table names using the `tmn_` prefix.
+
+## Teacher privacy and ownership
+
+Every Teacher page must continue using `tuman_require_role('TEACHER')` and queries that include:
+
+    tmn_teacher_students.teacher_user_id = :current_teacher_id
+
+For a shared Student, Teacher A can see and manage only Teacher A's assignment, attendance, responsibilities, billing rules, invoices, payments, PDFs, payment details, and queued notifications. Teacher B has a separate, private view. Neither Teacher may discover the other through filters, errors, invoice/PDF data, payment reminders, logs, or identifiers.
+
+## Student Portal: all-Teacher and per-Teacher views
+
+Students may see only their own records, always constrained by:
+
+    tmn_teacher_students.student_user_id = :current_student_id
+
+Add a reusable Student-owned Teacher-assignment lookup and a safe `teacher_assignment_id` filter. The filter must be validated as belonging to the logged-in Student; do not trust query-string values.
+
+- Add a Teacher filter to Student Attendance, Invoices, Payments, and dashboard outstanding balances: **All my Teachers** plus each Teacher the Student is assigned to.
+- The Student may see the relevant Teacher name for their own assignment. Do not expose other Students or any Teacher-private data.
+- Attendance, invoices, invoice items, payments, and balance calculations must respect the selected assignment. The all-Teachers view includes all of the Student's own records only.
+- Invoice/payment lists should identify the Teacher associated with each record.
+- Keep amounts separated by both Teacher and `currency_code`; do not sum INR, USD, or other currencies together.
+- Student invoice/PDF access continues to require Student ownership of that invoice. Do not permit a Student to access a different Student's invoice by changing an ID.
+
+## Services and pages
+
+Create or update focused reusable helpers rather than duplicating logic:
+
+- Existing-account lookup/linking and duplicate-assignment protection in `services/teacher_students.php`.
+- Student-owned assignment/filter and Teacher-labelled attendance/invoice/payment queries in `services/student_portal.php`.
+- Teacher enrolment/link form and student portal filters/pages.
+- Update Teacher-facing language from “Enrol student” to “Enrol or link student” where appropriate.
+
+Use PDO prepared statements, transactions for linking, server-side validation, output escaping, CSRF on every changed state form, and safe user-facing errors. No framework or ORM.
+
+## Documentation
+
+Update README.md, docs/architecture.md, docs/database.md, docs/development-log.md, docs/testing.md, and docs/user-manual.md. Document account reuse, unique assignment pair migration, privacy boundary, Student all/per-Teacher filters, and currency-separated balances.
+
+## Testing
+
+Test at minimum:
+
+    Existing Student email -> Teacher A link -> creates only Teacher A assignment
+    Same Student -> Teacher B link -> creates Teacher B assignment without exposing Teacher A
+    Same Teacher links the same Student twice -> rejected; no duplicate row
+    Unknown/incompatible/inactive account -> safe neutral rejection
+    New Student enrolment -> unchanged
+    Teacher A cannot see Teacher B records for shared Student
+    Shared Student sees all own Teacher records with All my Teachers
+    Shared Student per-Teacher attendance/invoice/payment filters return only selected Teacher records
+    Manipulated Student filter or invoice ID for another Student -> denied/safe empty result
+    Multi-currency balances remain separated by Teacher and currency
+    Missing/invalid CSRF on link -> rejected
+    Migration succeeds or safely stops on duplicate-pair precondition
+    PHP syntax checks -> pass
+
+Clearly distinguish PASS, BLOCKED, and NOT APPLICABLE. Do not proceed automatically to Phase 16.

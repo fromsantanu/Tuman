@@ -170,5 +170,18 @@ function tuman_change_invoice_status(PDO $database, int $teacherId, int $invoice
     } catch (Throwable $exception) { if ($ownsTransaction && $database->inTransaction()) { $database->rollBack(); } throw $exception; }
 }
 
+function tuman_set_invoice_discount(PDO $database, int $teacherId, int $invoiceId, string $discountAmount): void
+{
+    $invoice = tuman_teacher_invoice($database, $teacherId, $invoiceId);
+    if ($invoice === null || $invoice['status'] !== 'DRAFT') { throw new InvalidArgumentException('Only a draft invoice can be discounted.'); }
+    $discountMinor = tuman_invoice_minor_from_decimal(trim($discountAmount));
+    $subtotalMinor = tuman_invoice_minor_from_decimal((string) $invoice['subtotal']);
+    if ($discountMinor === null || $subtotalMinor === null || $discountMinor > $subtotalMinor) { throw new InvalidArgumentException('Enter a discount from zero up to the invoice subtotal.'); }
+    $statement = $database->prepare("UPDATE tmn_invoices SET discount_amount=:discount_amount, total_amount=:total_amount WHERE id=:id AND status='DRAFT'");
+    $statement->execute(['discount_amount' => tuman_invoice_decimal_from_minor($discountMinor), 'total_amount' => tuman_invoice_decimal_from_minor($subtotalMinor - $discountMinor), 'id' => $invoiceId]);
+    if ($statement->rowCount() !== 1) { throw new InvalidArgumentException('Only a draft invoice can be discounted.'); }
+    tuman_log_activity($database, $teacherId, 'INVOICE_DISCOUNT_UPDATED', 'INVOICE', $invoiceId, ['discount_amount' => tuman_invoice_decimal_from_minor($discountMinor), 'currency_code' => $invoice['currency_code']]);
+}
+
 function tuman_issue_invoice(PDO $database, int $teacherId, int $invoiceId): void { tuman_change_invoice_status($database, $teacherId, $invoiceId, 'ISSUED', 'INVOICE_ISSUED'); }
 function tuman_cancel_invoice(PDO $database, int $teacherId, int $invoiceId): void { tuman_change_invoice_status($database, $teacherId, $invoiceId, 'CANCELLED', 'INVOICE_CANCELLED'); }

@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS tmn_teacher_profiles (
     city VARCHAR(100) NULL,
     state_name VARCHAR(100) NULL,
     postal_code VARCHAR(20) NULL,
+    profile_details TEXT NULL,
+    photo_path VARCHAR(255) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_tmn_teacher_profiles_user FOREIGN KEY (user_id) REFERENCES tmn_users (id) ON DELETE RESTRICT ON UPDATE RESTRICT
@@ -45,9 +47,28 @@ CREATE TABLE IF NOT EXISTS tmn_student_profiles (
     country_code CHAR(2) NULL,
     guardian_name VARCHAR(200) NULL,
     guardian_phone VARCHAR(30) NULL,
+    profile_details TEXT NULL,
+    photo_path VARCHAR(255) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_tmn_student_profiles_user FOREIGN KEY (user_id) REFERENCES tmn_users (id) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS tmn_admin_profiles (
+    user_id BIGINT UNSIGNED PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NULL,
+    phone VARCHAR(30) NULL,
+    address_line1 VARCHAR(255) NULL,
+    address_line2 VARCHAR(255) NULL,
+    city VARCHAR(100) NULL,
+    state_name VARCHAR(100) NULL,
+    postal_code VARCHAR(20) NULL,
+    profile_details TEXT NULL,
+    photo_path VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_tmn_admin_profiles_user FOREIGN KEY (user_id) REFERENCES tmn_users (id) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS tmn_teacher_students (
@@ -63,7 +84,8 @@ CREATE TABLE IF NOT EXISTS tmn_teacher_students (
     CONSTRAINT fk_tmn_teacher_students_teacher FOREIGN KEY (teacher_user_id) REFERENCES tmn_users (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT fk_tmn_teacher_students_student FOREIGN KEY (student_user_id) REFERENCES tmn_users (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     KEY idx_tmn_teacher_students_teacher_status (teacher_user_id, status),
-    KEY idx_tmn_teacher_students_student_status (student_user_id, status)
+    KEY idx_tmn_teacher_students_student_status (student_user_id, status),
+    UNIQUE KEY uq_tmn_teacher_students_pair (teacher_user_id, student_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS tmn_responsibilities (

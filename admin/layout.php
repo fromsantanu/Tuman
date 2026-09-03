@@ -1,24 +1,5 @@
 <?php
 declare(strict_types=1);
-
-function tuman_admin_page_start(string $title): void
-{
-    ?>
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?> — Tuman</title><link rel="stylesheet" href="/Tuman/assets/css/public.css"></head><body>
-<header class="site-header"><div class="container navigation"><a class="brand" href="/Tuman/admin/index.php">Tuman<small>Administrator area</small></a><nav aria-label="Administrator navigation"><a href="/Tuman/admin/index.php">Home</a><a href="/Tuman/admin/users.php">Users</a><a href="/Tuman/admin/user-create.php">Create user</a></nav></div></header><main class="section"><div class="container content">
-<?php
-}
-
-function tuman_admin_page_end(): void
-{
-    ?>
-</div></main></body></html>
-<?php
-}
-
-function tuman_admin_user_id(mixed $value): int
-{
-    $id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-    if ($id === false) { throw new InvalidArgumentException('Choose a valid user.'); }
-    return $id;
-}
+function tuman_admin_page_start(string $title): void { ?>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?= htmlspecialchars($title,ENT_QUOTES,'UTF-8') ?> - Tuman</title><link rel="stylesheet" href="/Tuman/assets/css/public.css"></head><body><div class="app-shell"><aside class="app-sidebar"><a class="brand" href="/Tuman/admin/index.php">Tuman<small>Administrator area</small></a><nav aria-label="Administrator navigation"><a href="/Tuman/admin/index.php">Home</a><a href="/Tuman/admin/profile.php">My profile</a><a href="/Tuman/admin/users.php">Users</a><a href="/Tuman/admin/user-create.php">Create user</a></nav></aside><main class="app-main"><div class="content">
+<?php } function tuman_admin_page_end(): void { ?></div></main></div></body></html><?php } function tuman_admin_user_id(mixed $value): int { $id=filter_var($value,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($id===false){throw new InvalidArgumentException('Choose a valid user.');}return $id; }

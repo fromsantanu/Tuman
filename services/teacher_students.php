@@ -39,7 +39,7 @@ function tuman_teacher_student(PDO $database, int $teacherId, int $assignmentId)
     $statement = $database->prepare(
         'SELECT ts.id AS assignment_id, ts.teacher_user_id, ts.student_user_id, ts.start_date, ts.end_date, ts.status AS assignment_status,
                 u.username, u.email, u.status AS account_status, sp.first_name, sp.last_name, sp.phone,
-                sp.address_line1, sp.address_line2, sp.city, sp.state_name, sp.postal_code, sp.country_code, sp.guardian_name, sp.guardian_phone
+                sp.address_line1, sp.address_line2, sp.city, sp.state_name, sp.postal_code, sp.country_code, sp.guardian_name, sp.guardian_phone, sp.profile_details, sp.photo_path
          FROM tmn_teacher_students ts
          INNER JOIN tmn_users u ON u.id = ts.student_user_id AND u.role = \'STUDENT\'
          INNER JOIN tmn_student_profiles sp ON sp.user_id = u.id
@@ -48,6 +48,15 @@ function tuman_teacher_student(PDO $database, int $teacherId, int $assignmentId)
     $statement->execute(['assignment_id' => $assignmentId, 'teacher_id' => $teacherId]);
     $student = $statement->fetch();
     return is_array($student) ? $student : null;
+}
+
+/** Returns the contact profile shown to a Teacher before creating their own assignment. */
+function tuman_existing_student_profile_for_link(PDO $database, string $email): ?array
+{
+    $statement = $database->prepare("SELECT u.id AS student_user_id, u.username, u.email, sp.first_name, sp.last_name, sp.phone, sp.address_line1, sp.address_line2, sp.city, sp.state_name, sp.postal_code, sp.country_code, sp.guardian_name, sp.guardian_phone, sp.profile_details, sp.photo_path FROM tmn_users u INNER JOIN tmn_student_profiles sp ON sp.user_id=u.id WHERE u.email=:email AND u.role='STUDENT' AND u.status='ACTIVE'");
+    $statement->execute(['email' => trim($email)]);
+    $row = $statement->fetch();
+    return is_array($row) ? $row : null;
 }
 
 function tuman_enrol_student(PDO $database, int $teacherId, array $input): void
@@ -74,6 +83,25 @@ function tuman_enrol_student(PDO $database, int $teacherId, array $input): void
     }
 }
 
+function tuman_link_existing_student(PDO $database, int $teacherId, string $email): void
+{
+    $email = trim($email);
+    if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) { throw new InvalidArgumentException('Enter a valid student email address.'); }
+    $database->beginTransaction();
+    try {
+        $statement = $database->prepare("SELECT id FROM tmn_users WHERE email = :email AND role = 'STUDENT' AND status = 'ACTIVE' FOR UPDATE");
+        $statement->execute(['email' => $email]); $studentId = $statement->fetchColumn();
+        if ($studentId === false) { throw new InvalidArgumentException('This student account cannot be linked.'); }
+        $existing = $database->prepare('SELECT id FROM tmn_teacher_students WHERE teacher_user_id = :teacher_id AND student_user_id = :student_id FOR UPDATE');
+        $existing->execute(['teacher_id' => $teacherId, 'student_id' => $studentId]);
+        if ($existing->fetchColumn() !== false) { throw new InvalidArgumentException('This student account cannot be linked.'); }
+        $assignment = $database->prepare("INSERT INTO tmn_teacher_students (teacher_user_id, student_user_id, start_date, status) VALUES (:teacher_id, :student_id, UTC_DATE(), 'ACTIVE')");
+        $assignment->execute(['teacher_id' => $teacherId, 'student_id' => $studentId]); $assignmentId=(int)$database->lastInsertId();
+        tuman_log_activity($database, $teacherId, 'STUDENT_LINKED', 'TEACHER_STUDENT', $assignmentId, ['student_id' => (int)$studentId]);
+        $database->commit();
+    } catch (Throwable $exception) { if ($database->inTransaction()) { $database->rollBack(); } if ($exception instanceof PDOException && $exception->getCode() === '23000') { throw new InvalidArgumentException('This student account cannot be linked.'); } throw $exception; }
+}
+
 function tuman_update_teacher_student(PDO $database, int $teacherId, int $assignmentId, array $input): void
 {
     $student = tuman_teacher_student($database, $teacherId, $assignmentId);
@@ -88,8 +116,8 @@ function tuman_update_teacher_student(PDO $database, int $teacherId, int $assign
         $account = $database->prepare('UPDATE tmn_users SET email = :email WHERE id = :id');
         $account->execute(['email' => $input['email'] === '' ? null : $input['email'], 'id' => $student['student_user_id']]);
         $countryCode = tuman_country_code((string) ($input['country_code'] ?? ''));
-        $profile = $database->prepare('UPDATE tmn_student_profiles SET first_name = :first_name, last_name = :last_name, phone = :phone, address_line1 = :address_line1, address_line2 = :address_line2, city = :city, state_name = :state_name, postal_code = :postal_code, country_code = :country_code, guardian_name = :guardian_name, guardian_phone = :guardian_phone WHERE user_id = :user_id');
-        $profile->execute(['first_name' => $input['first_name'], 'last_name' => $input['last_name'] ?: null, 'phone' => $input['phone'] ?: null, 'address_line1' => $input['address_line1'] ?: null, 'address_line2' => $input['address_line2'] ?: null, 'city' => $input['city'] ?: null, 'state_name' => $input['state_name'] ?: null, 'postal_code' => $input['postal_code'] ?: null, 'country_code' => $countryCode, 'guardian_name' => $input['guardian_name'] ?: null, 'guardian_phone' => $input['guardian_phone'] ?: null, 'user_id' => $student['student_user_id']]);
+        $profile = $database->prepare('UPDATE tmn_student_profiles SET first_name = :first_name, last_name = :last_name, phone = :phone, address_line1 = :address_line1, address_line2 = :address_line2, city = :city, state_name = :state_name, postal_code = :postal_code, country_code = :country_code, guardian_name = :guardian_name, guardian_phone = :guardian_phone, profile_details = :profile_details WHERE user_id = :user_id');
+        $profile->execute(['first_name' => $input['first_name'], 'last_name' => $input['last_name'] ?: null, 'phone' => $input['phone'] ?: null, 'address_line1' => $input['address_line1'] ?: null, 'address_line2' => $input['address_line2'] ?: null, 'city' => $input['city'] ?: null, 'state_name' => $input['state_name'] ?: null, 'postal_code' => $input['postal_code'] ?: null, 'country_code' => $countryCode, 'guardian_name' => $input['guardian_name'] ?: null, 'guardian_phone' => $input['guardian_phone'] ?: null, 'profile_details' => ($input['profile_details'] ?? '') ?: null, 'user_id' => $student['student_user_id']]);
         tuman_log_activity($database, $teacherId, 'STUDENT_PROFILE_UPDATED', 'TEACHER_STUDENT', $assignmentId, ['country_changed' => $countryCode !== ($student['country_code'] ?? null)]);
         if ($ownsTransaction) { $database->commit(); }
     } catch (Throwable $exception) { if ($ownsTransaction && $database->inTransaction()) { $database->rollBack(); } if ($exception instanceof PDOException && $exception->getCode() === '23000') { throw new InvalidArgumentException('That email address is already in use.'); } throw $exception; }
