@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/billing.php';
+require_once __DIR__ . '/batches.php';
 
 const TUMAN_ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LEAVE', 'CANCELLED', 'HOLIDAY'];
 
@@ -53,7 +53,7 @@ function tuman_attendance_values(array $input): array
 /** @return list<array<string, mixed>> */
 function tuman_teacher_attendance_list(PDO $database, int $teacherId, ?int $assignmentId = null, ?string $month = null): array
 {
-    $sql = 'SELECT a.*, b.rule_name AS billing_rule_name, ts.status AS assignment_status, sp.first_name, sp.last_name FROM tmn_attendance a INNER JOIN tmn_teacher_students ts ON ts.id = a.teacher_student_id INNER JOIN tmn_student_profiles sp ON sp.user_id = ts.student_user_id LEFT JOIN tmn_student_billing b ON b.id=a.billing_rule_id WHERE ts.teacher_user_id = :teacher_id';
+    $sql = 'SELECT a.*, b.rule_name AS billing_rule_name, bt.batch_name, ts.status AS assignment_status, sp.first_name, sp.last_name FROM tmn_attendance a INNER JOIN tmn_teacher_students ts ON ts.id = a.teacher_student_id INNER JOIN tmn_student_profiles sp ON sp.user_id = ts.student_user_id LEFT JOIN tmn_student_billing b ON b.id=a.billing_rule_id LEFT JOIN tmn_batches bt ON bt.id=a.batch_id WHERE ts.teacher_user_id = :teacher_id';
     $params = ['teacher_id' => $teacherId];
     if ($assignmentId !== null) { $sql .= ' AND a.teacher_student_id = :assignment_id'; $params['assignment_id'] = $assignmentId; }
     if ($month !== null) { $sql .= ' AND a.session_date >= :month_start AND a.session_date < :month_end'; $params['month_start'] = $month . '-01'; $params['month_end'] = (new DateTimeImmutable($month . '-01'))->modify('+1 month')->format('Y-m-d'); }
@@ -98,10 +98,10 @@ function tuman_create_attendance(PDO $database, int $teacherId, int $assignmentI
     $assignment = tuman_teacher_student($database, $teacherId, $assignmentId);
     if ($assignment === null) { throw new InvalidArgumentException('Student not found.'); }
     if ($assignment['assignment_status'] !== 'ACTIVE') { throw new InvalidArgumentException('Choose an active student.'); }
-    $values = tuman_attendance_values($input); tuman_validate_attendance_assignment_date($assignment, $values['session_date']); $values['billing_rule_id']=tuman_attendance_billing_rule_id($database,$teacherId,$assignmentId,$values,$input);
+    $values = tuman_attendance_values($input); tuman_validate_attendance_assignment_date($assignment, $values['session_date']); $values['billing_rule_id']=tuman_attendance_billing_rule_id($database,$teacherId,$assignmentId,$values,$input); $values['batch_id']=tuman_batch_attendance_id($database,$teacherId,$assignmentId,$values,$input); $values['batch_billing_rule_id']=null;
     if (tuman_attendance_duplicate_exists($database, $assignmentId, $values)) { throw new InvalidArgumentException('A session with this date and start time already exists.'); }
     try {
-        $statement = $database->prepare('INSERT INTO tmn_attendance (teacher_student_id, billing_rule_id, session_date, start_time, end_time, duration_minutes, status, remarks) VALUES (:assignment_id, :billing_rule_id, :session_date, :start_time, :end_time, :duration_minutes, :status, :remarks)');
+        $statement = $database->prepare('INSERT INTO tmn_attendance (teacher_student_id, billing_rule_id, batch_id, batch_billing_rule_id, session_date, start_time, end_time, duration_minutes, status, remarks) VALUES (:assignment_id, :billing_rule_id, :batch_id, :batch_billing_rule_id, :session_date, :start_time, :end_time, :duration_minutes, :status, :remarks)');
         $statement->execute(['assignment_id' => $assignmentId] + $values); $attendanceId = (int) $database->lastInsertId();
         tuman_log_activity($database, $teacherId, 'ATTENDANCE_CREATED', 'ATTENDANCE', $attendanceId, ['assignment_id' => $assignmentId, 'status' => $values['status']]);
     } catch (PDOException $exception) { if ($exception->getCode() === '23000') { throw new InvalidArgumentException('A session with this date and start time already exists.'); } throw $exception; }
@@ -111,10 +111,10 @@ function tuman_update_attendance(PDO $database, int $teacherId, int $attendanceI
 {
     $record = tuman_teacher_attendance($database, $teacherId, $attendanceId);
     if ($record === null) { throw new InvalidArgumentException('Attendance record not found.'); }
-    $values = tuman_attendance_values($input); tuman_validate_attendance_assignment_date(['start_date' => $record['assignment_start_date'], 'end_date' => $record['assignment_end_date']], $values['session_date']); $values['billing_rule_id']=array_key_exists('billing_rule_id',$input)?tuman_attendance_billing_rule_id($database,$teacherId,(int)$record['teacher_student_id'],$values,$input):$record['billing_rule_id'];
+    $values = tuman_attendance_values($input); tuman_validate_attendance_assignment_date(['start_date' => $record['assignment_start_date'], 'end_date' => $record['assignment_end_date']], $values['session_date']); $values['billing_rule_id']=array_key_exists('billing_rule_id',$input)?tuman_attendance_billing_rule_id($database,$teacherId,(int)$record['teacher_student_id'],$values,$input):$record['billing_rule_id']; $values['batch_id']=array_key_exists('batch_id',$input)?tuman_batch_attendance_id($database,$teacherId,(int)$record['teacher_student_id'],$values,$input):$record['batch_id']; $values['batch_billing_rule_id']=null;
     if (tuman_attendance_duplicate_exists($database, (int) $record['teacher_student_id'], $values, $attendanceId)) { throw new InvalidArgumentException('A session with this date and start time already exists.'); }
     try {
-        $statement = $database->prepare('UPDATE tmn_attendance SET billing_rule_id = :billing_rule_id, session_date = :session_date, start_time = :start_time, end_time = :end_time, duration_minutes = :duration_minutes, status = :status, remarks = :remarks WHERE id = :id');
+        $statement = $database->prepare('UPDATE tmn_attendance SET billing_rule_id = :billing_rule_id, batch_id = :batch_id, batch_billing_rule_id = :batch_billing_rule_id, session_date = :session_date, start_time = :start_time, end_time = :end_time, duration_minutes = :duration_minutes, status = :status, remarks = :remarks WHERE id = :id');
         $statement->execute($values + ['id' => $attendanceId]);
         tuman_log_activity($database, $teacherId, 'ATTENDANCE_UPDATED', 'ATTENDANCE', $attendanceId, ['status' => $values['status']]);
     } catch (PDOException $exception) { if ($exception->getCode() === '23000') { throw new InvalidArgumentException('A session with this date and start time already exists.'); } throw $exception; }

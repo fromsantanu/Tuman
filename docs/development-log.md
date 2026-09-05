@@ -1,5 +1,12 @@
 # Development log
 
+## Phase 20 — Batches
+
+- Added teacher-owned course batches with objective, teacher/student responsibilities, terms, and fixed-monthly, instalment, or one-time billing.
+- Added managed batch memberships for existing students and transactional enrolment of new students directly into a batch.
+- Added one-screen batch draft invoice generation for every active member, while retaining normal invoice issuing and cancellation.
+- Added batch/individual attendance identification and a student-facing My Batches screen.
+
 ## Phase 13 - Receipts and PDF exports
 
 Added Teacher-owned payment details, currency-aware invoice PDF downloads, and payment receipt PDF exports. Invoice PDFs include the issued student's name and available address.

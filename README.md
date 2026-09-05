@@ -4,7 +4,7 @@ Tuman is a planned PHP and MySQL application for individual tuition teachers and
 
 ## Current status
 
-**Phase 19 — Reports** is complete. Tuman includes teacher income, outstanding-balance, student-summary, and administrator teacher-summary reports, based on the invoice, payment, credit, and refund ledger.
+**Phase 20 — Batches** is complete. Teachers can organise course batches, enrol existing or new students, record batch attendance, and create batch draft invoices in one action.
 
 ## Planned technology
 
@@ -70,3 +70,7 @@ Continue with future enhancements such as production readiness and additional co
 ## Reports module
 
 Teachers can open `/Tuman/teacher/reports.php` to review income, refunds, outstanding invoices, transaction history, and summaries for their own students. Administrators can open `/Tuman/admin/reports.php` for teacher-level operational and financial summaries. All amounts are grouped by currency.
+
+## Batches module
+
+Teachers can open `/Tuman/teacher/batches.php` to create and manage course batches. Each batch includes its objective, responsibilities, terms, and a fixed-monthly, instalment, or one-time charge. `/Tuman/teacher/batch-invoice-create.php?id=…` creates one draft invoice per active member; normal invoice issue/cancellation remains unchanged. Students can review memberships at `/Tuman/student/batches.php`, and attendance identifies batch versus individual classes.

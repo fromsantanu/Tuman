@@ -10,6 +10,12 @@ function tuman_student_teacher_assignments(PDO $database, int $studentId): array
 {
     $statement=$database->prepare("SELECT ts.id AS assignment_id, u.id AS teacher_user_id, COALESCE(NULLIF(tp.first_name, ''), u.username) AS first_name, tp.last_name FROM tmn_teacher_students ts INNER JOIN tmn_users u ON u.id=ts.teacher_user_id LEFT JOIN tmn_teacher_profiles tp ON tp.user_id=u.id WHERE ts.student_user_id=:student_id ORDER BY first_name,tp.last_name");$statement->execute(['student_id'=>$studentId]);return $statement->fetchAll();
 }
+/** @return list<array<string,mixed>> */
+function tuman_student_batches(PDO $database, int $studentId): array
+{
+    $statement=$database->prepare("SELECT b.*, bs.enrolled_on, bs.status AS membership_status, COALESCE(NULLIF(tp.first_name,''),u.username) AS teacher_first_name,tp.last_name AS teacher_last_name FROM tmn_batch_students bs INNER JOIN tmn_batches b ON b.id=bs.batch_id INNER JOIN tmn_teacher_students ts ON ts.id=bs.teacher_student_id INNER JOIN tmn_users u ON u.id=b.teacher_user_id LEFT JOIN tmn_teacher_profiles tp ON tp.user_id=b.teacher_user_id WHERE ts.student_user_id=:student_id ORDER BY bs.status='ACTIVE' DESC,b.batch_name");
+    $statement->execute(['student_id'=>$studentId]); return $statement->fetchAll();
+}
 /** @return array<string, mixed>|null */
 function tuman_student_teacher_profile(PDO $database, int $studentId, mixed $assignmentValue): ?array
 {
@@ -26,7 +32,7 @@ function tuman_student_owned_assignment_id(PDO $database,int $studentId,mixed $v
 }
 function tuman_student_attendance(PDO $database, int $studentId, ?int $assignmentId = null): array
 {
-    $sql="SELECT a.*, COALESCE(NULLIF(tp.first_name, ''), u.username) AS teacher_first_name, tp.last_name AS teacher_last_name FROM tmn_attendance a INNER JOIN tmn_teacher_students ts ON ts.id=a.teacher_student_id INNER JOIN tmn_users u ON u.id=ts.teacher_user_id LEFT JOIN tmn_teacher_profiles tp ON tp.user_id=ts.teacher_user_id WHERE ts.student_user_id=:student_id";$params=['student_id'=>$studentId];if($assignmentId!==null){$sql.=' AND ts.id=:assignment_id';$params['assignment_id']=$assignmentId;}$sql.=' ORDER BY a.session_date DESC,a.start_time DESC,a.id DESC';$statement=$database->prepare($sql);$statement->execute($params);return $statement->fetchAll();
+    $sql="SELECT a.*, bt.batch_name, COALESCE(NULLIF(tp.first_name, ''), u.username) AS teacher_first_name, tp.last_name AS teacher_last_name FROM tmn_attendance a INNER JOIN tmn_teacher_students ts ON ts.id=a.teacher_student_id INNER JOIN tmn_users u ON u.id=ts.teacher_user_id LEFT JOIN tmn_teacher_profiles tp ON tp.user_id=ts.teacher_user_id LEFT JOIN tmn_batches bt ON bt.id=a.batch_id WHERE ts.student_user_id=:student_id";$params=['student_id'=>$studentId];if($assignmentId!==null){$sql.=' AND ts.id=:assignment_id';$params['assignment_id']=$assignmentId;}$sql.=' ORDER BY a.session_date DESC,a.start_time DESC,a.id DESC';$statement=$database->prepare($sql);$statement->execute($params);return $statement->fetchAll();
 }
 function tuman_student_invoices(PDO $database, int $studentId, ?int $assignmentId = null): array
 {

@@ -59,7 +59,7 @@ function tuman_existing_student_profile_for_link(PDO $database, string $email): 
     return is_array($row) ? $row : null;
 }
 
-function tuman_enrol_student(PDO $database, int $teacherId, array $input): void
+function tuman_enrol_student(PDO $database, int $teacherId, array $input): int
 {
     $errors = tuman_validate_student_input($input);
     if (strlen($input['password'] ?? '') < 12) { $errors['password'] = 'Password must be at least 12 characters long.'; }
@@ -74,8 +74,10 @@ function tuman_enrol_student(PDO $database, int $teacherId, array $input): void
         $profile->execute(['user_id' => $studentId, 'first_name' => $input['first_name'], 'last_name' => $input['last_name'] ?: null, 'phone' => $input['phone'] ?: null, 'address_line1' => $input['address_line1'] ?: null, 'address_line2' => $input['address_line2'] ?: null, 'city' => $input['city'] ?: null, 'state_name' => $input['state_name'] ?: null, 'postal_code' => $input['postal_code'] ?: null, 'country_code' => tuman_country_code((string) ($input['country_code'] ?? '')), 'guardian_name' => $input['guardian_name'] ?: null, 'guardian_phone' => $input['guardian_phone'] ?: null]);
         $assignment = $database->prepare("INSERT INTO tmn_teacher_students (teacher_user_id, student_user_id, start_date, status) VALUES (:teacher_id, :student_id, UTC_DATE(), 'ACTIVE')");
         $assignment->execute(['teacher_id' => $teacherId, 'student_id' => $studentId]);
-        tuman_log_activity($database, $teacherId, 'STUDENT_ENROLLED', 'TEACHER_STUDENT', (int) $database->lastInsertId(), ['student_id' => $studentId]);
+        $assignmentId = (int) $database->lastInsertId();
+        tuman_log_activity($database, $teacherId, 'STUDENT_ENROLLED', 'TEACHER_STUDENT', $assignmentId, ['student_id' => $studentId]);
         if ($ownsTransaction) { $database->commit(); }
+        return $assignmentId;
     } catch (Throwable $exception) {
         if ($ownsTransaction && $database->inTransaction()) { $database->rollBack(); }
         if ($exception instanceof PDOException && $exception->getCode() === '23000') { throw new InvalidArgumentException('That username or email address is already in use.'); }

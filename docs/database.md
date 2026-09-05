@@ -32,6 +32,8 @@ Role/profile consistency is a business rule: a teacher profile belongs to a user
 | --- | --- | --- |
 | `tmn_responsibilities` | Structured teacher or student responsibilities assigned within a teacher–student relationship. | `id` PK; `teacher_student_id` FK; `responsibility_for` (teacher/student); `title`; `details` nullable; `status`; `effective_from`; `effective_to` nullable; timestamps. |
 | `tmn_attendance` | A dated teaching session or attendance record. | `id` PK; `teacher_student_id` FK; `session_date`; `start_time` nullable; `end_time` nullable; `duration_minutes` nullable; `status` (present, absent, leave, cancelled, holiday); `remarks` nullable; timestamps. Index `(teacher_student_id, session_date)`, plus a uniqueness rule for non-null session start time. |
+| `tmn_batches` | A teacher-owned group of students for one course. | `id` PK; `teacher_user_id` FK; unique teacher-local batch name; objective, responsibilities, terms; fixed-monthly, instalment, or one-time charge and currency; status; timestamps. |
+| `tmn_batch_students` | Batch membership tied to the existing teacher-student assignment. | `id` PK; `batch_id` FK; `teacher_student_id` FK; enrolled-on date; status; timestamps. A student can have both batch and individual lesson records. |
 
 `duration_minutes` is calculated by the application when valid start and end times are supplied for a present session. Absent, leave, cancelled, and holiday records use null start/end times and null duration. The assignment/date/start-time unique key permits multiple sessions on one date when each has a different start time.
 
@@ -62,6 +64,7 @@ tmn_users ── 1:0..1 ── tmn_student_profiles
 teacher user ── 1:* ── tmn_teacher_students ── *:1 ── student user
 tmn_teacher_students ── 1:* ── tmn_responsibilities
 tmn_teacher_students ── 1:* ── tmn_attendance
+tmn_batches ── 1:* ── tmn_batch_students ── *:1 ── tmn_teacher_students
 tmn_teacher_students ── 1:* ── tmn_student_billing
 tmn_teacher_students ── 1:* ── tmn_invoices ── 1:* ── tmn_invoice_items
 tmn_invoices ── 1:* ── tmn_payments
@@ -78,6 +81,7 @@ tmn_invoices ── 1:* ── tmn_payments
 7. Financial records are retained. A payment error is voided with an audit trail, not deleted.
 8. An active billing rule cannot ambiguously overlap another applicable rule for the same assignment and mode.
 9. Attendance must be connected to the assignment rather than merely accepting unrelated teacher and student identifiers.
+10. A batch attendance record may only use an active batch membership belonging to the teacher and valid on its session date. Batch invoice drafts use the batch charge; individual billing remains unchanged.
 
 ## Implemented constraints and delete behaviour
 
