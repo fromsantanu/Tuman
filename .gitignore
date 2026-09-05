@@ -1,3 +1,5 @@
 .env
 *.log
 /.phpunit.result.cache
+/backups/
+*.partial

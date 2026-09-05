@@ -48,6 +48,12 @@ After signing in as an Administrator, open the Administrator area and select **U
 
 Deactivating an account prevents that user from signing in but retains its history. Tuman prevents you from deactivating your own account, removing your own Administrator role, or leaving the system with no active Administrator.
 
+## Backups and retention (Phase 21)
+
+Administrators can open **Backups and retention** in the Administrator sidebar. Select **Run backup now** to create a compressed complete database backup in the server’s configured secure external storage. The page shows only safe backup identifiers and status; it does not provide browser downloads of backup files.
+
+To remove old operational records, first enter a cutoff date and select **Preview purge**. The preview changes no data. To execute it, enter the same cutoff date, type `PURGE` exactly, and select **Purge eligible data**. Tuman creates and verifies a fresh backup before deleting anything. Only email-delivery and activity-log records created before the cutoff are eligible. Financial, billing, invoice, payment, user, attendance, teaching, and batch history is retained.
+
 ## Teacher student management (Phase 06)
 
 After signing in as a Teacher, use **My students** to view students assigned to you and **Enrol student** to create a new Student account and assignment. Teachers can view and update permitted student contact and guardian details, but cannot edit roles, usernames, passwords, account status, or financial information.

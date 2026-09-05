@@ -55,6 +55,8 @@ Role/profile consistency is a business rule: a teacher profile belongs to a user
 | `tmn_teacher_payment_details` | Teacher-owned static payment instructions for invoice PDFs. | `teacher_user_id` PK/FK; separate Indian and international account/instruction fields; no values are written to activity logs. |
 | `tmn_system_settings` | Small, administrator-controlled non-secret configuration values. | `setting_key` PK; `setting_value`; `updated_at`; `updated_by_user_id` nullable FK. Secrets are not stored here. |
 | `tmn_activity_log` | Audit trail for meaningful actions. | `id` PK; `actor_user_id` nullable FK; `action`; `entity_type`; `entity_id` nullable; safe details JSON/text nullable; `created_at`. Index `(entity_type, entity_id)` and `(actor_user_id, created_at)`. |
+| `tmn_backup_runs` | Metadata for complete database-backup attempts. | `id` PK; optional initiating Administrator; status; safe storage identifier; final size; safe error summary; start/completion times. No credentials, command text, or dump content is stored. |
+| `tmn_purge_runs` | Metadata for retention previews and executions. | `id` PK; optional initiating Administrator; optional verified backup run; mode; cutoff date; status; per-table row counts; safe error summary; timestamps. |
 
 ## Relationships
 
@@ -105,3 +107,7 @@ Money is `DECIMAL(12,2)` and quantities are `DECIMAL(10,2)`; calculations must r
 4. Run `php tests/database_connection.php`.
 
 The seed supplies one administrator, two teachers, four students, assignments, responsibilities, billing examples, attendance, two invoices with items, and a partial payment. All accounts use the clearly development-only password `TumanDemo2026!`. Do not use these accounts or password in production.
+
+## Phase 21 maintenance migration
+
+Apply `database/migrations/20260905_phase_21_maintenance.sql` to an existing database before using backup or retention controls. It creates only the run-metadata tables. The backup itself is produced by the configured MySQL/MariaDB dump utility and includes the complete database schema and data.

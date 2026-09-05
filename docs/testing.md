@@ -1,5 +1,14 @@
 # Testing approach
 
+## Phase 21 results
+
+| Test | Result | Notes |
+| --- | --- | --- |
+| PHP syntax for maintenance service, Administrator page, and CLI runners | PASS | All changed PHP files passed `php -l`. |
+| Administrator role guard and CSRF checks | PASS | Source verification confirms the protected page requires `ADMIN` and all actions validate the existing CSRF token. |
+| Backup/purge database integration | PENDING | Requires applying the Phase 21 migration and a locally configured dump utility plus external backup directory. |
+| Retention scope | PASS | Source verification limits deletion to `tmn_email_log` and `tmn_activity_log`; all other tables are excluded. |
+
 ## Phases 13-14 results
 
 | Test | Result | Notes |

@@ -1,5 +1,12 @@
 # Development log
 
+## Phase 21 — Backups and retention
+
+- Added Administrator-only backup and retention controls with complete MySQL/MariaDB dump generation, gzip compression, atomic finalization, external-storage validation, and retention of old backup files.
+- Added safe run history for backup and purge operations without persisting credentials, commands, or backup contents.
+- Added previewable and confirmed purging of only old email-delivery and activity-log records. Every executed purge creates and verifies a fresh backup before deleting in bounded transactions.
+- Added CLI runners designed for Windows Task Scheduler or cron; no hidden web scheduler was introduced.
+
 ## Phase 20 — Batches
 
 - Added teacher-owned course batches with objective, teacher/student responsibilities, terms, and fixed-monthly, instalment, or one-time billing.

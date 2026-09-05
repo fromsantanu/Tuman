@@ -119,6 +119,12 @@ Invoice items are created as immutable snapshots. Present hourly attendance crea
 
 ## Security baseline
 
+## Backups and retention (Phase 21)
+
+`admin/maintenance.php` is an Administrator-only control page. It delegates backup and retention work to `services/maintenance.php`, where the allow-listed database-dump executable is started without a shell and database credentials are supplied only through a temporary client configuration file. Backup output is written outside the application directory, compressed, checked, and atomically finalized. Neither credentials, command output, nor full storage paths are shown in the browser or stored in the database.
+
+`bin/backup-database.php` and `bin/purge-retention.php` are PHP CLI entry points for Windows Task Scheduler or cron. A scheduled retention purge calculates its cutoff from an explicit configured number of days and always creates a verified backup first. Only old `tmn_email_log` and `tmn_activity_log` rows are eligible for deletion. Bounded, transactional delete batches reduce lock duration; business, identity, teaching, and financial records are never retention-purged.
+
 ## Documents and notifications (Phases 13-14)
 
 Teachers can maintain their own Indian and international payment instructions in `tmn_teacher_payment_details`. Teacher-owned invoices can be exported as PDFs; INR selects Indian instructions and other currencies select international instructions. Phase 14 queues invoice notices and payment reminders in `tmn_email_log` with safe metadata. SMTP delivery is deliberately disabled until approved environment credentials are configured; pending queue records must not be represented as sent messages.
