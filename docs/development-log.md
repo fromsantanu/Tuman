@@ -6,6 +6,13 @@
 - Added safe run history for backup and purge operations without persisting credentials, commands, or backup contents.
 - Added previewable and confirmed purging of only old email-delivery and activity-log records. Every executed purge creates and verifies a fresh backup before deleting in bounded transactions.
 - Added CLI runners designed for Windows Task Scheduler or cron; no hidden web scheduler was introduced.
+- Backups explicitly include triggers, stored procedures/functions, and scheduled events, then verify that every database table/view and each visible trigger, routine, and event has a definition in the generated dump before finalizing it.
+
+## Phase 21 — Communications
+
+- Added teacher-to-student and student-to-teacher messaging, including individual and active-batch recipients.
+- Added Announcement, Reminder, Warning, Urgent Action, and Official categories for Teacher messages; Student messages are always Official, with a subject, message body, and one optional validated attachment.
+- Added inboxes, unread dashboard-navigation notifications, protected attachment downloads, and SMTP delivery logging when mail is enabled.
 
 ## Phase 20 — Batches
 

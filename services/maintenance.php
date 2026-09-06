@@ -102,6 +102,31 @@ function tuman_maintenance_gzip(string $source, string $destination): void
     finally { fclose($input); gzclose($output); }
 }
 
+function tuman_maintenance_verify_dump(PDO $database, string $schema, string $dumpPath): void
+{
+    $dump = file_get_contents($dumpPath);
+    if ($dump === false || !str_contains($dump, 'CREATE DATABASE')) { throw new RuntimeException('Database backup verification failed.'); }
+    $objects = [
+        ['sql' => 'SELECT TABLE_NAME AS name,TABLE_TYPE AS type FROM information_schema.TABLES WHERE TABLE_SCHEMA=:schema', 'kind' => 'table'],
+        ['sql' => 'SELECT TRIGGER_NAME AS name FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=:schema', 'kind' => 'trigger'],
+        ['sql' => 'SELECT ROUTINE_NAME AS name,ROUTINE_TYPE AS type FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=:schema', 'kind' => 'routine'],
+        ['sql' => 'SELECT EVENT_NAME AS name FROM information_schema.EVENTS WHERE EVENT_SCHEMA=:schema', 'kind' => 'event'],
+    ];
+    foreach ($objects as $object) {
+        $statement = $database->prepare($object['sql']); $statement->execute(['schema' => $schema]);
+        foreach ($statement->fetchAll() as $row) {
+            $name = preg_quote((string)$row['name'], '/');
+            $pattern = match ($object['kind']) {
+                'table' => (($row['type'] ?? '') === 'VIEW' ? '/CREATE(?:\\s+ALGORITHM=\\S+)?(?:\\s+DEFINER\\s*=\\s*\\S+)?(?:\\s+SQL\\s+SECURITY\\s+\\w+)?\\s+VIEW\\s+`?' : '/CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?`?') . $name . '`?/is',
+                'trigger' => '/TRIGGER\\s+`?' . $name . '`?/i',
+                'routine' => '/' . (($row['type'] ?? '') === 'FUNCTION' ? 'FUNCTION' : 'PROCEDURE') . '\\s+`?' . $name . '`?/i',
+                'event' => '/EVENT\\s+`?' . $name . '`?/i',
+            };
+            if (preg_match($pattern, $dump) !== 1) { throw new RuntimeException('Database backup verification failed.'); }
+        }
+    }
+}
+
 /** @return array{id:int,identifier:string,size:int} */
 function tuman_maintenance_run_backup(PDO $database, ?int $actorId = null): array
 {
@@ -114,12 +139,13 @@ function tuman_maintenance_run_backup(PDO $database, ?int $actorId = null): arra
         $partialSql = $directory . DIRECTORY_SEPARATOR . 'tuman-' . $stamp . '.sql.partial';
         $partialGzip = $directory . DIRECTORY_SEPARATOR . $identifier . '.partial';
         $clientFile = tuman_maintenance_write_client_file($configuration);
-        $command = [tuman_maintenance_dump_binary(), '--defaults-extra-file=' . $clientFile, '--single-transaction', '--routines', '--events', '--triggers', '--add-drop-table', '--databases', $configuration['DB_NAME'], '--result-file=' . $partialSql];
+        $command = [tuman_maintenance_dump_binary(), '--defaults-extra-file=' . $clientFile, '--single-transaction', '--routines', '--events', '--triggers', '--add-drop-table', '--add-drop-trigger', '--no-tablespaces', '--databases', $configuration['DB_NAME'], '--result-file=' . $partialSql];
         $pipes = [];
         $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($process)) { throw new RuntimeException('Unable to start database backup.'); }
         foreach ($pipes as $pipe) { stream_get_contents($pipe); fclose($pipe); }
         if (proc_close($process) !== 0 || !is_file($partialSql) || filesize($partialSql) < 32) { throw new RuntimeException('Database backup failed.'); }
+        tuman_maintenance_verify_dump($database, $configuration['DB_NAME'], $partialSql);
         tuman_maintenance_gzip($partialSql, $partialGzip);
         if (!is_file($partialGzip) || filesize($partialGzip) < 32 || !rename($partialGzip, $directory . DIRECTORY_SEPARATOR . $identifier)) { throw new RuntimeException('Database backup failed.'); }
         $size = filesize($directory . DIRECTORY_SEPARATOR . $identifier); if ($size === false) { throw new RuntimeException('Database backup failed.'); }

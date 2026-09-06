@@ -4,7 +4,7 @@ Tuman is a planned PHP and MySQL application for individual tuition teachers and
 
 ## Current status
 
-**Phase 21 — Backups and retention** is complete. Administrators can create complete database backups and safely purge only old operational email and activity logs.
+**Phase 21 — Backups, retention, and communications** is complete. Administrators can create complete database backups and safely purge only old operational email and activity logs; Teachers and Students can exchange messages.
 
 ## Planned technology
 
@@ -71,7 +71,7 @@ Continue with future enhancements such as production readiness and additional co
 
 Administrators can open `/Tuman/admin/maintenance.php` to run a complete database backup, see recent backup history, preview old operational records, and purge eligible records. Backups are written to the external directory configured by `TUMAN_BACKUP_DIR`; this directory must not be inside the application or web root.
 
-Only `tmn_email_log` and `tmn_activity_log` records before a selected cutoff are eligible for deletion. Financial, invoice, payment, credit, refund, user, attendance, teaching, batch, and billing history are retained. A real purge always creates and verifies a fresh backup first.
+Only `tmn_email_log` and `tmn_activity_log` records before a selected cutoff are eligible for deletion. Financial, invoice, payment, credit, refund, user, attendance, teaching, batch, and billing history are retained. A real purge always creates and verifies a fresh backup first. Backups include the selected Tuman database's tables, data, views, triggers, stored procedures, functions, and scheduled events; server user accounts and grants are outside this database backup's scope.
 
 Set `TUMAN_MYSQLDUMP_PATH`, `TUMAN_BACKUP_DIR`, `TUMAN_BACKUP_RETENTION_DAYS`, and `TUMAN_PURGE_RETENTION_DAYS` in `.env`. From the application directory, run `php bin/backup-database.php` for a backup; run `php bin/purge-retention.php --cutoff=YYYY-MM-DD --preview` to preview a purge; run `php bin/purge-retention.php --cutoff=YYYY-MM-DD --execute` to purge after a fresh backup. Schedule `php bin/backup-database.php` for backups and `php bin/purge-retention.php --scheduled` for retention purges using Windows Task Scheduler or cron.
 
@@ -82,3 +82,7 @@ Teachers can open `/Tuman/teacher/reports.php` to review income, refunds, outsta
 ## Batches module
 
 Teachers can open `/Tuman/teacher/batches.php` to create and manage course batches. Each batch includes its objective, responsibilities, terms, and a fixed-monthly, instalment, or one-time charge. `/Tuman/teacher/batch-invoice-create.php?id=…` creates one draft invoice per active member; normal invoice issue/cancellation remains unchanged. Students can review memberships at `/Tuman/student/batches.php`, and attendance identifies batch versus individual classes.
+
+## Messages module
+
+Teachers can use `/Tuman/teacher/messages.php` to send an Announcement, Reminder, Warning, Urgent Action, or Official message to one active student or every active member of an active batch. Students can use `/Tuman/student/messages.php` to send an Official message to an active teacher. Messages have a subject, body, and at most one optional PDF, JPG, PNG, DOC, or DOCX attachment (up to 10 MB). Each recipient has an in-app unread notification and protected attachment download; SMTP delivery is attempted only when mail is enabled and configured.
