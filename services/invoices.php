@@ -167,13 +167,40 @@ function tuman_create_invoice(PDO $database, int $teacherId, int $assignmentId, 
     } catch (Throwable $exception) { if ($ownsTransaction && $database->inTransaction()) { $database->rollBack(); } throw $exception; }
 }
 
+function tuman_create_special_invoice(PDO $database, int $teacherId, int $assignmentId, array $input): void
+{
+    $reason = trim((string) ($input['special_reason'] ?? ''));
+    $comment = trim((string) ($input['comment'] ?? ''));
+    $amount = tuman_invoice_minor_from_decimal(trim((string) ($input['amount'] ?? '')));
+    $currency = tuman_currency_code((string) ($input['currency_code'] ?? ''));
+    $invoiceDate = trim((string) ($input['invoice_date'] ?? ''));
+    $dueDate = trim((string) ($input['due_date'] ?? ''));
+    if (!in_array($reason, ['ADDITIONAL_CHARGES', 'COMPENSATION', 'OTHER'], true)) { throw new InvalidArgumentException('Choose a valid reason.'); }
+    if ($comment === '' || strlen($comment) > 500) { throw new InvalidArgumentException('Enter a comment of up to 500 characters.'); }
+    if ($amount === null || $amount <= 0) { throw new InvalidArgumentException('Enter an amount greater than zero with no more than two decimal places.'); }
+    if ($currency === null || !tuman_invoice_valid_date($invoiceDate) || ($dueDate !== '' && (!tuman_invoice_valid_date($dueDate) || $dueDate < $invoiceDate))) { throw new InvalidArgumentException('Enter valid invoice, due date, and currency details.'); }
+    $ownsTransaction = !$database->inTransaction(); if ($ownsTransaction) { $database->beginTransaction(); }
+    try {
+        $assignment = tuman_teacher_student($database, $teacherId, $assignmentId);
+        if ($assignment === null || $assignment['assignment_status'] !== 'ACTIVE') { throw new InvalidArgumentException('Choose an active student.'); }
+        $number = tuman_invoice_reserve_number($database, $invoiceDate); $decimal = tuman_invoice_decimal_from_minor($amount);
+        $header = $database->prepare("INSERT INTO tmn_invoices (invoice_number,teacher_student_id,billing_period_from,billing_period_to,invoice_date,due_date,subtotal,discount_amount,total_amount,currency_code,status,special_reason,special_comment) VALUES (:number,:assignment_id,:period_from,:period_to,:invoice_date,:due_date,:amount,'0.00',:total_amount,:currency,'DRAFT',:reason,:comment)");
+        $header->execute(['number'=>$number,'assignment_id'=>$assignmentId,'period_from'=>$invoiceDate,'period_to'=>$invoiceDate,'invoice_date'=>$invoiceDate,'due_date'=>$dueDate===''?null:$dueDate,'amount'=>$decimal,'total_amount'=>$decimal,'currency'=>$currency,'reason'=>$reason,'comment'=>$comment]);
+        $invoiceId=(int)$database->lastInsertId(); $labels=['ADDITIONAL_CHARGES'=>'Additional charges','COMPENSATION'=>'Compensation','OTHER'=>'Other'];
+        $item=$database->prepare("INSERT INTO tmn_invoice_items (invoice_id,description,quantity,unit_rate,amount,sort_order) VALUES (:invoice_id,:description,'1.00',:unit_rate,:amount,1)");
+        $item->execute(['invoice_id'=>$invoiceId,'description'=>$labels[$reason].' — '.$comment,'unit_rate'=>$decimal,'amount'=>$decimal]);
+        tuman_log_activity($database,$teacherId,'SPECIAL_INVOICE_CREATED','INVOICE',$invoiceId,['invoice_number'=>$number,'reason'=>$reason,'currency_code'=>$currency]); if ($ownsTransaction) { $database->commit(); }
+    } catch (Throwable $exception) { if ($ownsTransaction && $database->inTransaction()) { $database->rollBack(); } throw $exception; }
+}
+
 function tuman_change_invoice_status(PDO $database, int $teacherId, int $invoiceId, string $toStatus, string $action): void
 {
     $ownsTransaction = !$database->inTransaction(); if ($ownsTransaction) { $database->beginTransaction(); }
     try {
         $invoice = tuman_teacher_invoice($database, $teacherId, $invoiceId);
-        if ($invoice === null || $invoice['status'] !== 'DRAFT') { throw new InvalidArgumentException('Invoice unavailable.'); }
-        $statement = $database->prepare("UPDATE tmn_invoices SET status = :status WHERE id = :id AND status = 'DRAFT'");
+        $allowed = $toStatus === 'CANCELLED' ? ['DRAFT', 'ISSUED'] : ['DRAFT'];
+        if ($invoice === null || !in_array($invoice['status'], $allowed, true)) { throw new InvalidArgumentException('Invoice unavailable.'); }
+        $statement = $database->prepare("UPDATE tmn_invoices SET status = :status WHERE id = :id AND status IN ('DRAFT','ISSUED')");
         $statement->execute(['status' => $toStatus, 'id' => $invoiceId]); if ($statement->rowCount() !== 1) { throw new InvalidArgumentException('Invoice unavailable.'); }
         tuman_log_activity($database, $teacherId, $action, 'INVOICE', $invoiceId, ['invoice_number' => $invoice['invoice_number'], 'to' => $toStatus]);
         if ($ownsTransaction) { $database->commit(); }

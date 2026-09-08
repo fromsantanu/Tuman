@@ -17,6 +17,13 @@ function tuman_validate_student_input(array $input): array
     return $errors;
 }
 
+function tuman_teacher_student_effective_date(string $date): string
+{
+    $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+    if ($parsed === false || $parsed->format('Y-m-d') !== $date || $date > gmdate('Y-m-d')) { throw new InvalidArgumentException('Effective-from date must be today or an earlier valid date.'); }
+    return $date;
+}
+
 /** @return list<array<string, mixed>> */
 function tuman_teacher_students(PDO $database, int $teacherId): array
 {
@@ -64,6 +71,7 @@ function tuman_enrol_student(PDO $database, int $teacherId, array $input): int
     $errors = tuman_validate_student_input($input);
     if (strlen($input['password'] ?? '') < 12) { $errors['password'] = 'Password must be at least 12 characters long.'; }
     if ($errors !== []) { throw new InvalidArgumentException(reset($errors)); }
+    $effectiveFrom = tuman_teacher_student_effective_date(trim((string) ($input['effective_from'] ?? '')));
     $ownsTransaction = !$database->inTransaction();
     if ($ownsTransaction) { $database->beginTransaction(); }
     try {
@@ -72,10 +80,10 @@ function tuman_enrol_student(PDO $database, int $teacherId, array $input): int
         $studentId = (int) $database->lastInsertId();
         $profile = $database->prepare('INSERT INTO tmn_student_profiles (user_id, first_name, last_name, phone, address_line1, address_line2, city, state_name, postal_code, country_code, guardian_name, guardian_phone) VALUES (:user_id, :first_name, :last_name, :phone, :address_line1, :address_line2, :city, :state_name, :postal_code, :country_code, :guardian_name, :guardian_phone)');
         $profile->execute(['user_id' => $studentId, 'first_name' => $input['first_name'], 'last_name' => $input['last_name'] ?: null, 'phone' => $input['phone'] ?: null, 'address_line1' => $input['address_line1'] ?: null, 'address_line2' => $input['address_line2'] ?: null, 'city' => $input['city'] ?: null, 'state_name' => $input['state_name'] ?: null, 'postal_code' => $input['postal_code'] ?: null, 'country_code' => tuman_country_code((string) ($input['country_code'] ?? '')), 'guardian_name' => $input['guardian_name'] ?: null, 'guardian_phone' => $input['guardian_phone'] ?: null]);
-        $assignment = $database->prepare("INSERT INTO tmn_teacher_students (teacher_user_id, student_user_id, start_date, status) VALUES (:teacher_id, :student_id, UTC_DATE(), 'ACTIVE')");
-        $assignment->execute(['teacher_id' => $teacherId, 'student_id' => $studentId]);
+        $assignment = $database->prepare("INSERT INTO tmn_teacher_students (teacher_user_id, student_user_id, start_date, status) VALUES (:teacher_id, :student_id, :start_date, 'ACTIVE')");
+        $assignment->execute(['teacher_id' => $teacherId, 'student_id' => $studentId, 'start_date' => $effectiveFrom]);
         $assignmentId = (int) $database->lastInsertId();
-        tuman_log_activity($database, $teacherId, 'STUDENT_ENROLLED', 'TEACHER_STUDENT', $assignmentId, ['student_id' => $studentId]);
+        tuman_log_activity($database, $teacherId, 'STUDENT_ENROLLED', 'TEACHER_STUDENT', $assignmentId, ['student_id' => $studentId, 'effective_from' => $effectiveFrom]);
         if ($ownsTransaction) { $database->commit(); }
         return $assignmentId;
     } catch (Throwable $exception) {
@@ -112,6 +120,9 @@ function tuman_update_teacher_student(PDO $database, int $teacherId, int $assign
     $errors = tuman_validate_student_input($input);
     unset($errors['username']);
     if ($errors !== []) { throw new InvalidArgumentException(reset($errors)); }
+    $effectiveFrom = tuman_teacher_student_effective_date(trim((string) ($input['effective_from'] ?? '')));
+    $assignmentStatus = (string) ($input['assignment_status'] ?? '');
+    if (!in_array($assignmentStatus, ['ACTIVE', 'INACTIVE'], true)) { throw new InvalidArgumentException('Choose a valid assignment status.'); }
     try {
         $ownsTransaction = !$database->inTransaction();
         if ($ownsTransaction) { $database->beginTransaction(); }
@@ -120,7 +131,9 @@ function tuman_update_teacher_student(PDO $database, int $teacherId, int $assign
         $countryCode = tuman_country_code((string) ($input['country_code'] ?? ''));
         $profile = $database->prepare('UPDATE tmn_student_profiles SET first_name = :first_name, last_name = :last_name, phone = :phone, address_line1 = :address_line1, address_line2 = :address_line2, city = :city, state_name = :state_name, postal_code = :postal_code, country_code = :country_code, guardian_name = :guardian_name, guardian_phone = :guardian_phone, profile_details = :profile_details WHERE user_id = :user_id');
         $profile->execute(['first_name' => $input['first_name'], 'last_name' => $input['last_name'] ?: null, 'phone' => $input['phone'] ?: null, 'address_line1' => $input['address_line1'] ?: null, 'address_line2' => $input['address_line2'] ?: null, 'city' => $input['city'] ?: null, 'state_name' => $input['state_name'] ?: null, 'postal_code' => $input['postal_code'] ?: null, 'country_code' => $countryCode, 'guardian_name' => $input['guardian_name'] ?: null, 'guardian_phone' => $input['guardian_phone'] ?: null, 'profile_details' => ($input['profile_details'] ?? '') ?: null, 'user_id' => $student['student_user_id']]);
-        tuman_log_activity($database, $teacherId, 'STUDENT_PROFILE_UPDATED', 'TEACHER_STUDENT', $assignmentId, ['country_changed' => $countryCode !== ($student['country_code'] ?? null)]);
+        $assignment = $database->prepare("UPDATE tmn_teacher_students SET start_date = :start_date, status = :status, end_date = CASE WHEN :status_for_end = 'ACTIVE' THEN NULL ELSE UTC_DATE() END WHERE id = :id AND teacher_user_id = :teacher_id");
+        $assignment->execute(['start_date' => $effectiveFrom, 'status' => $assignmentStatus, 'status_for_end' => $assignmentStatus, 'id' => $assignmentId, 'teacher_id' => $teacherId]);
+        tuman_log_activity($database, $teacherId, 'STUDENT_PROFILE_UPDATED', 'TEACHER_STUDENT', $assignmentId, ['country_changed' => $countryCode !== ($student['country_code'] ?? null), 'effective_from' => $effectiveFrom, 'status' => $assignmentStatus]);
         if ($ownsTransaction) { $database->commit(); }
     } catch (Throwable $exception) { if ($ownsTransaction && $database->inTransaction()) { $database->rollBack(); } if ($exception instanceof PDOException && $exception->getCode() === '23000') { throw new InvalidArgumentException('That email address is already in use.'); } throw $exception; }
 }

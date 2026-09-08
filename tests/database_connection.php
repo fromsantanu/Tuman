@@ -10,6 +10,7 @@ try {
     }
     echo "Database connection verified.\n";
 } catch (Throwable $exception) {
-    fwrite(STDERR, "Database connection verification failed: {$exception->getMessage()}\n");
+    http_response_code(500);
+    echo 'Database connection verification failed: ' . htmlspecialchars($exception->getMessage(), ENT_QUOTES, 'UTF-8');
     exit(1);
 }

@@ -19,13 +19,33 @@ function tuman_environment(): array
     $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.env';
 
     if (is_file($path)) {
-        $values = parse_ini_file($path, false, INI_SCANNER_RAW);
-        if ($values === false) {
+        $lines = file($path, FILE_IGNORE_NEW_LINES);
+        if ($lines === false) {
             throw new RuntimeException('Application configuration could not be read.');
         }
 
-        foreach ($values as $key => $value) {
-            $environment[(string) $key] = (string) $value;
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#') || str_starts_with($line, ';')) {
+                continue;
+            }
+
+            $separator = strpos($line, '=');
+            if ($separator === false) {
+                continue;
+            }
+
+            $key = trim(substr($line, 0, $separator));
+            $value = trim(substr($line, $separator + 1));
+            if ($key === '') {
+                continue;
+            }
+
+            if (strlen($value) >= 2 && (($value[0] === '"' && $value[-1] === '"') || ($value[0] === "'" && $value[-1] === "'"))) {
+                $value = substr($value, 1, -1);
+            }
+
+            $environment[$key] = $value;
         }
     }
 
