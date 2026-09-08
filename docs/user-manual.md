@@ -8,7 +8,7 @@ Teachers can save separate Indian and international payment instructions in **Pa
 
 ## Payments, Student Portal, and documents (Phases 11-14)
 
-Teachers can record and void payments for their own invoices. Students can view only their own profile, attendance, invoices, and payments. Teachers can download invoice PDFs and save Indian/international payment details. Invoice notices and reminders currently enter a pending queue; SMTP delivery and receipt emails are still pending.
+Teachers can record and void payments for their own invoices. They can also record an advance from a student in **Credits & refunds** (or **Payments**); it becomes credit that can later be applied to an eligible invoice or refunded. Students can view only their own profile, attendance, invoices, payments, and credit balances. Teachers can download invoice PDFs and save Indian/international payment details. Invoice notices and reminders currently enter a pending queue; SMTP delivery and receipt emails are still pending.
 
 Tuman is in architecture planning. There are no usable application screens yet, so this is an outline for the manual that will be completed as modules are implemented.
 

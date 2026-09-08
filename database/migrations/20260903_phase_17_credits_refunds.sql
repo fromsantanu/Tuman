@@ -2,7 +2,12 @@
 CREATE TABLE IF NOT EXISTS tmn_student_credits (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     teacher_student_id BIGINT UNSIGNED NOT NULL,
-    source_payment_id BIGINT UNSIGNED NOT NULL,
+    source_payment_id BIGINT UNSIGNED NULL,
+    source_type ENUM('OVERPAYMENT','ADVANCE') NOT NULL DEFAULT 'OVERPAYMENT',
+    received_date DATE NULL,
+    received_method ENUM('CASH','UPI','BANK_TRANSFER','CARD','OTHER') NULL,
+    reference_number VARCHAR(100) NULL,
+    remarks VARCHAR(500) NULL,
     currency_code CHAR(3) NOT NULL,
     original_amount DECIMAL(12,2) NOT NULL,
     remaining_amount DECIMAL(12,2) NOT NULL,
