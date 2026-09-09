@@ -104,14 +104,14 @@ function tuman_invoice_generated_items(PDO $database, int $assignmentId, string 
     $attendance->execute(['assignment_id' => $assignmentId, 'period_from' => $periodFrom, 'period_to' => $periodTo]);
     foreach ($attendance->fetchAll() as $session) {
         if ($session['billing_rule_id'] !== null) {
-            $selected = $database->prepare("SELECT * FROM tmn_student_billing WHERE id=:id AND teacher_student_id=:assignment_id AND billing_mode='HOURLY' AND effective_from<=:date AND (effective_to IS NULL OR effective_to>=:date)");
-            $selected->execute(['id' => $session['billing_rule_id'], 'assignment_id' => $assignmentId, 'date' => $session['session_date']]); $rule = $selected->fetch();
+            $selected = $database->prepare("SELECT * FROM tmn_student_billing WHERE id=:id AND teacher_student_id=:assignment_id AND billing_mode='HOURLY' AND effective_from<=:effective_from AND (effective_to IS NULL OR effective_to>=:effective_to)");
+            $selected->execute(['id' => $session['billing_rule_id'], 'assignment_id' => $assignmentId, 'effective_from' => $session['session_date'], 'effective_to' => $session['session_date']]); $rule = $selected->fetch();
             if (!is_array($rule)) { throw new InvalidArgumentException('The hourly rule selected for an attendance session is unavailable for its date.'); }
         } elseif ($fixedRules !== []) {
             continue;
         } else {
-            $automatic = $database->prepare("SELECT * FROM tmn_student_billing WHERE teacher_student_id=:assignment_id AND billing_mode='HOURLY' AND status='ACTIVE' AND effective_from<=:date AND (effective_to IS NULL OR effective_to>=:date) ORDER BY rate DESC,id DESC LIMIT 1");
-            $automatic->execute(['assignment_id' => $assignmentId, 'date' => $session['session_date']]); $rule = $automatic->fetch();
+            $automatic = $database->prepare("SELECT * FROM tmn_student_billing WHERE teacher_student_id=:assignment_id AND billing_mode='HOURLY' AND status='ACTIVE' AND effective_from<=:effective_from AND (effective_to IS NULL OR effective_to>=:effective_to) ORDER BY rate DESC,id DESC LIMIT 1");
+            $automatic->execute(['assignment_id' => $assignmentId, 'effective_from' => $session['session_date'], 'effective_to' => $session['session_date']]); $rule = $automatic->fetch();
             if (!is_array($rule)) { throw new InvalidArgumentException('No applicable hourly billing rule exists for an attendance session.'); }
         }
         $rateMinor = tuman_invoice_minor_from_decimal((string) $rule['rate']);
